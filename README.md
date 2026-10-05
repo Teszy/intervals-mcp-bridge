@@ -63,12 +63,12 @@ kept unchanged. The client preserves API ordering and returns a validated subset
 `id`, `name`, `type`, `start_date_local`, `distance` (meters), and `moving_time`
 (seconds). Fields other than `id` may be absent or null, including in partial summaries.
 
-Requests use Basic authentication with username `API_KEY`, have a 15-second timeout,
+Each client reuses one Axios instance. Requests use Basic authentication with username `API_KEY`, have a 15-second timeout,
 and reject redirects. HTTP failures throw `IntervalsApiError` with a numeric `status`;
 network failures and malformed responses throw descriptive errors. Error messages
 omit the API key and response body. No retries are performed.
 
-Tests inject `fetch` and a clock, so `pnpm check` needs no API credentials or live
+Tests inject an Axios adapter and a clock, so `pnpm check` needs no API credentials or live
 Intervals.icu requests. Coverage thresholds remain at 80%.
 
 API reference: [Intervals.icu integration cookbook](https://forum.intervals.icu/t/intervals-icu-api-integration-cookbook/80090).

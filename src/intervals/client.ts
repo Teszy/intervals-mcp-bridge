@@ -1,3 +1,4 @@
+import axios, { type AxiosAdapter, type AxiosInstance } from 'axios';
 import { z } from 'zod';
 import { validateIntervalsConfig, type IntervalsConfig } from './config.js';
 
@@ -21,15 +22,22 @@ export class IntervalsApiError extends Error {
 
 export class IntervalsClient {
   readonly #config: IntervalsConfig;
-  readonly #fetch: typeof fetch;
+  readonly #http: AxiosInstance;
   readonly #now: () => Date;
 
   constructor(
     config: IntervalsConfig,
-    dependencies: { fetch?: typeof fetch; now?: () => Date } = {},
+    dependencies: { adapter?: AxiosAdapter; now?: () => Date } = {},
   ) {
     this.#config = validateIntervalsConfig(config);
-    this.#fetch = dependencies.fetch ?? globalThis.fetch;
+    this.#http = axios.create({
+      baseURL: 'https://intervals.icu/api/v1',
+      auth: { username: 'API_KEY', password: this.#config.apiKey },
+      headers: { Accept: 'application/json' },
+      timeout: 15_000,
+      maxRedirects: 0,
+      ...(dependencies.adapter ? { adapter: dependencies.adapter } : {}),
+    });
     this.#now = dependencies.now ?? (() => new Date());
   }
 
@@ -41,34 +49,32 @@ export class IntervalsClient {
     const newest = new Date(this.#now());
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - days + 1);
-    const url = new URL(
-      `https://intervals.icu/api/v1/athlete/${this.#config.athleteId}/activities`,
-    );
-    url.searchParams.set('oldest', oldest.toISOString().slice(0, 10));
-    url.searchParams.set('newest', newest.toISOString().slice(0, 10));
-
-    let response: Response;
+    let data: unknown;
     try {
-      response = await this.#fetch(url, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Basic ${Buffer.from(`API_KEY:${this.#config.apiKey}`).toString('base64')}`,
+      const response = await this.#http.get<unknown>(
+        `/athlete/${this.#config.athleteId}/activities`,
+        {
+          params: {
+            oldest: oldest.toISOString().slice(0, 10),
+            newest: newest.toISOString().slice(0, 10),
+          },
+          signal: AbortSignal.timeout(15_000),
         },
-        signal: AbortSignal.timeout(15_000),
-        redirect: 'error',
-      });
-    } catch {
+      );
+      data = response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response) {
+        throw new IntervalsApiError(error.response.status);
+      }
+      // Axios errors retain credentials in config; deliberately omit the original cause.
+      // eslint-disable-next-line preserve-caught-error
       throw new Error('Intervals API request failed: network error or timeout.');
     }
-    if (!response.ok) {
-      throw new IntervalsApiError(response.status);
-    }
 
-    try {
-      return z.array(activitySchema).parse(await response.json());
-    } catch {
+    const result = z.array(activitySchema).safeParse(data);
+    if (!result.success) {
       throw new Error('Intervals API returned an invalid activities response.');
     }
+    return result.data;
   }
 }

@@ -16,7 +16,9 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "prepare": "husky",
-    "release": "semantic-release"
+    "release": "semantic-release",
+    "activities": "node --env-file-if-exists=.env --import tsx src/cli.ts",
+    "check:commit": "pnpm typecheck && pnpm test:run"
   },
   "prettier": {
     "singleQuote": true,
@@ -77,6 +79,7 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/server": "^2.1.0",
+    "axios": "^1.20.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

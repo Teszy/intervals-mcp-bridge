@@ -1,6 +1,7 @@
-import axios, { type AxiosAdapter, type AxiosInstance } from 'axios';
+import { APIClient } from '../api/client.js';
+import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
-import { validateIntervalsConfig, type IntervalsConfig } from './config.js';
+import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 
 const activitySchema = z.object({
   id: z.string().min(1),
@@ -13,32 +14,18 @@ const activitySchema = z.object({
 
 export type ActivitySummary = z.infer<typeof activitySchema>;
 
-export class IntervalsApiError extends Error {
-  constructor(public readonly status: number) {
-    super(`Intervals API request failed (HTTP ${status}).`);
-    this.name = 'IntervalsApiError';
-  }
-}
-
 export class IntervalsClient {
   readonly #config: IntervalsConfig;
-  readonly #http: AxiosInstance;
-  readonly #now: () => Date;
+  readonly #api: APIClient;
 
-  constructor(
-    config: IntervalsConfig,
-    dependencies: { adapter?: AxiosAdapter; now?: () => Date } = {},
-  ) {
-    this.#config = validateIntervalsConfig(config);
-    this.#http = axios.create({
-      baseURL: 'https://intervals.icu/api/v1',
-      auth: { username: 'API_KEY', password: this.#config.apiKey },
-      headers: { Accept: 'application/json' },
-      timeout: 15_000,
-      maxRedirects: 0,
-      ...(dependencies.adapter ? { adapter: dependencies.adapter } : {}),
-    });
-    this.#now = dependencies.now ?? (() => new Date());
+  constructor(config: IntervalsConfig = loadIntervalsConfig()) {
+    this.#config = { ...config };
+    const basicAuth: BasicAuth = {
+      type: 'basic',
+      username: 'API_KEY',
+      password: this.#config.apiKey,
+    };
+    this.#api = new APIClient(this.#config.baseURL, basicAuth);
   }
 
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
@@ -46,30 +33,13 @@ export class IntervalsClient {
     if (!Number.isInteger(days) || days < 1 || days > 365) {
       throw new Error('days must be an integer between 1 and 365.');
     }
-    const newest = new Date(this.#now());
+    const newest = new Date();
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - days + 1);
-    let data: unknown;
-    try {
-      const response = await this.#http.get<unknown>(
-        `/athlete/${this.#config.athleteId}/activities`,
-        {
-          params: {
-            oldest: oldest.toISOString().slice(0, 10),
-            newest: newest.toISOString().slice(0, 10),
-          },
-          signal: AbortSignal.timeout(15_000),
-        },
-      );
-      data = response.data;
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error) && error.response) {
-        throw new IntervalsApiError(error.response.status);
-      }
-      // Axios errors retain credentials in config; deliberately omit the original cause.
-      // eslint-disable-next-line preserve-caught-error
-      throw new Error('Intervals API request failed: network error or timeout.');
-    }
+    const data = await this.#api.get(`/athlete/${this.#config.athleteId}/activities`, {
+      oldest: oldest.toISOString().slice(0, 10),
+      newest: newest.toISOString().slice(0, 10),
+    });
 
     const result = z.array(activitySchema).safeParse(data);
     if (!result.success) {

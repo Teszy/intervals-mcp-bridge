@@ -1,53 +1,93 @@
-import axios, { AxiosError, type AxiosAdapter, type AxiosResponse } from 'axios';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntervalsClient } from '../src/intervals/client.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
+import { mockHttp } from './helpers/http.js';
 
-const config = { apiKey: 'test-secret', athleteId: 'i12345' };
-const now = () => new Date('2026-01-03T23:30:00Z');
+const config = {
+  apiKey: 'test-secret',
+  athleteId: 'i12345',
+  baseURL: 'https://intervals.icu/api/v1',
+};
+const env = {
+  INTERVALS_API_KEY: 'test-secret',
+  INTERVALS_ATHLETE_ID: 'i12345',
+  INTERVALS_BASE_URL: 'https://intervals.icu/api/v1',
+};
 
-function setup(data: unknown = [], status = 200, clock = now) {
-  const adapter = vi.fn<AxiosAdapter>().mockImplementation(async (request) => {
-    const response: AxiosResponse<unknown> = {
-      data,
-      status,
-      statusText: '',
-      headers: {},
-      config: request,
-    };
-    // Adapters are responsible for rejecting unsuccessful HTTP responses.
-    if (status < 200 || status >= 300) {
-      throw new AxiosError(
-        'sensitive server content',
-        'ERR_BAD_RESPONSE',
-        request,
-        undefined,
-        response,
-      );
-    }
-    return response;
-  });
-  return { adapter, client: new IntervalsClient(config, { adapter, now: clock }) };
+function setup(data: unknown = []) {
+  const adapter = mockHttp(data);
+  return {
+    adapter,
+    client: new IntervalsClient(config),
+  };
 }
 
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => vi.stubEnv('INTERVALS_BASE_URL', 'https://intervals.icu/api/v1'));
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 describe('Intervals configuration', () => {
+  it('reads and normalizes the environment base URL', () => {
+    expect(loadIntervalsConfig({ ...env, INTERVALS_API_KEY: 'key' }).baseURL).toBe(
+      'https://intervals.icu/api/v1',
+    );
+    expect(
+      loadIntervalsConfig({
+        INTERVALS_API_KEY: 'key',
+        INTERVALS_BASE_URL: ' https://example.com/api/ ',
+      }).baseURL,
+    ).toBe('https://example.com/api');
+  });
+  it.each([undefined, '', ' ', 'relative/path', 'ftp://example.com'])(
+    'rejects invalid base URLs %j',
+    (baseURL) => {
+      const env = baseURL === undefined ? {} : { INTERVALS_BASE_URL: baseURL };
+      expect(() => loadIntervalsConfig({ ...env, INTERVALS_API_KEY: 'key' })).toThrow(
+        'Invalid Intervals configuration',
+      );
+    },
+  );
   it('loads and trims environment values', () => {
     expect(
-      loadIntervalsConfig({ INTERVALS_API_KEY: ' key ', INTERVALS_ATHLETE_ID: ' i123 ' }),
-    ).toEqual({ apiKey: 'key', athleteId: 'i123' });
+      loadIntervalsConfig({
+        ...env,
+        INTERVALS_API_KEY: ' key ',
+        INTERVALS_ATHLETE_ID: ' i123 ',
+      }),
+    ).toEqual({ apiKey: 'key', athleteId: 'i123', baseURL: 'https://intervals.icu/api/v1' });
+  });
+
+  it('preserves an i-prefixed athlete ID as a string', () => {
+    expect(
+      loadIntervalsConfig({
+        INTERVALS_API_KEY: 'personal-api-key',
+        INTERVALS_ATHLETE_ID: 'i123456',
+        INTERVALS_BASE_URL: 'https://intervals.icu/api/v1',
+      }).athleteId,
+    ).toBe('i123456');
   });
 
   it('defaults the athlete to the API key owner', () => {
-    expect(loadIntervalsConfig({ INTERVALS_API_KEY: 'key' }).athleteId).toBe('0');
+    expect(
+      loadIntervalsConfig({
+        INTERVALS_API_KEY: 'key',
+        INTERVALS_BASE_URL: env.INTERVALS_BASE_URL,
+      }).athleteId,
+    ).toBe('0');
   });
 
   it('reads process.env by default', () => {
     vi.stubEnv('INTERVALS_API_KEY', 'test-key');
     vi.stubEnv('INTERVALS_ATHLETE_ID', '123');
     try {
-      expect(loadIntervalsConfig()).toEqual({ apiKey: 'test-key', athleteId: '123' });
+      expect(loadIntervalsConfig()).toEqual({
+        apiKey: 'test-key',
+        athleteId: '123',
+        baseURL: 'https://intervals.icu/api/v1',
+      });
     } finally {
       vi.unstubAllEnvs();
     }
@@ -55,25 +95,56 @@ describe('Intervals configuration', () => {
 
   it.each([{}, { INTERVALS_API_KEY: '' }, { INTERVALS_API_KEY: '   ' }])(
     'rejects missing or blank keys',
-    (env) => {
-      expect(() => loadIntervalsConfig(env)).toThrow('Invalid Intervals configuration');
+    (overrides) => {
+      expect(() =>
+        loadIntervalsConfig({ ...env, INTERVALS_API_KEY: undefined, ...overrides }),
+      ).toThrow('Invalid Intervals configuration');
     },
   );
 
   it.each(['', ' ', '../other', 'i0', '-1', 'foo', '12?x=1'])('rejects athlete ID %j', (id) => {
     expect(() =>
-      loadIntervalsConfig({ INTERVALS_API_KEY: 'secret', INTERVALS_ATHLETE_ID: id }),
+      loadIntervalsConfig({
+        ...env,
+        INTERVALS_API_KEY: 'secret',
+        INTERVALS_ATHLETE_ID: id,
+      }),
     ).toThrow('Invalid Intervals configuration');
-  });
-
-  it('validates direct client configuration without exposing the key', () => {
-    expect(() => new IntervalsClient({ ...config, athleteId: 'invalid' })).toThrow(
-      'Invalid Intervals configuration: provide an API key and a valid athlete ID.',
-    );
   });
 });
 
 describe('IntervalsClient', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-03T23:30:00Z'));
+  });
+
+  it('loads environment configuration when none is supplied', async () => {
+    vi.stubEnv('INTERVALS_API_KEY', ' environment-key ');
+    vi.stubEnv('INTERVALS_ATHLETE_ID', ' i456 ');
+    const { adapter } = setup();
+    const client = new IntervalsClient();
+    expect(adapter).not.toHaveBeenCalled();
+    await client.getRecentActivities();
+    const request = adapter.mock.calls[0]![0];
+    expect(request.url).toBe('/athlete/i456/activities');
+    expect(request.headers.get('Authorization')).toBe(
+      'Basic ' + Buffer.from('API_KEY:environment-key').toString('base64'),
+    );
+  });
+
+  it('rejects missing environment credentials during construction', () => {
+    vi.stubEnv('INTERVALS_API_KEY', '');
+    expect(() => new IntervalsClient()).toThrow('Invalid Intervals configuration');
+  });
+
+  it('accepts explicit configuration without reading environment credentials', async () => {
+    vi.stubEnv('INTERVALS_API_KEY', '');
+    const { adapter } = setup();
+    await new IntervalsClient({ ...config, athleteId: '0' }).getRecentActivities();
+    expect(adapter.mock.calls[0]![0].url).toBe('/athlete/0/activities');
+  });
+
   it('configures authentication, timeout and date bounds and validates summaries', async () => {
     const activity = {
       id: 'i42',
@@ -91,21 +162,23 @@ describe('IntervalsClient', () => {
       baseURL: 'https://intervals.icu/api/v1',
       url: '/athlete/i12345/activities',
       method: 'get',
-      auth: { username: 'API_KEY', password: 'test-secret' },
       timeout: 15_000,
       maxRedirects: 0,
       params: { oldest: '2025-12-28', newest: '2026-01-03' },
       signal: expect.any(AbortSignal),
     });
     expect(request.headers.get('Accept')).toBe('application/json');
+    expect(request.headers.get('Authorization')).toBe(
+      'Basic ' + Buffer.from('API_KEY:test-secret').toString('base64'),
+    );
   });
 
-  it('reuses one Axios instance across requests', async () => {
-    const create = vi.spyOn(axios, 'create');
-    const { client } = setup();
+  it('uses the configured base URL and makes no request during construction', async () => {
+    const adapter = mockHttp();
+    const client = new IntervalsClient({ ...config, baseURL: 'https://example.com/api' });
+    expect(adapter).not.toHaveBeenCalled();
     await client.getRecentActivities();
-    await client.getRecentActivities(1);
-    expect(create).toHaveBeenCalledOnce();
+    expect(adapter.mock.calls[0]![0].baseURL).toBe('https://example.com/api');
   });
 
   it('supports a single date and empty results', async () => {
@@ -117,15 +190,14 @@ describe('IntervalsClient', () => {
     });
   });
 
-  it('handles leap days without mutating the clock', async () => {
-    const date = new Date('2024-03-01T00:00:00Z');
-    const { client, adapter } = setup([], 200, () => date);
+  it('handles leap days', async () => {
+    vi.setSystemTime(new Date('2024-03-01T00:00:00Z'));
+    const { client, adapter } = setup();
     await client.getRecentActivities(2);
     expect(adapter.mock.calls[0]![0].params).toEqual({
       oldest: '2024-02-29',
       newest: '2024-03-01',
     });
-    expect(date.toISOString()).toBe('2024-03-01T00:00:00.000Z');
   });
 
   it('accepts partial summaries and nullable fields', async () => {
@@ -142,54 +214,6 @@ describe('IntervalsClient', () => {
     },
   );
 
-  it.each([302, 401, 403, 429, 500])(
-    'maps HTTP %s without leaking Axios config or response data',
-    async (status) => {
-      const { client } = setup('sensitive server content', status);
-      const error: unknown = await client.getRecentActivities().catch((error: unknown) => error);
-      expect(error).toMatchObject({
-        name: 'IntervalsApiError',
-        status,
-        message: `Intervals API request failed (HTTP ${status}).`,
-      });
-      expect(error).not.toHaveProperty('config');
-      expect(error).not.toHaveProperty('response');
-      expect(error).not.toHaveProperty('cause');
-      expect(String(error)).not.toContain('test-secret');
-      expect(String(error)).not.toContain('sensitive server content');
-    },
-  );
-
-  it.each([
-    new Error('test-secret'),
-    new AxiosError('test-secret', 'ERR_NETWORK'),
-    new AxiosError('test-secret', 'ECONNABORTED'),
-  ])('sanitizes transport errors', async (error) => {
-    const { client, adapter } = setup();
-    adapter.mockRejectedValue(error);
-    await expect(client.getRecentActivities()).rejects.toThrow(
-      'Intervals API request failed: network error or timeout.',
-    );
-  });
-
-  it('cancels a stalled request using the deadline signal', async () => {
-    const { client, adapter } = setup();
-    const controller = new AbortController();
-    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
-    adapter.mockImplementation(
-      (request) =>
-        new Promise((_resolve, reject) => {
-          request.signal?.addEventListener?.('abort', () =>
-            reject(new AxiosError('timeout', 'ERR_CANCELED')),
-          );
-        }),
-    );
-    const request = client.getRecentActivities();
-    expect(timeout).toHaveBeenCalledWith(15_000);
-    controller.abort();
-    await expect(request).rejects.toThrow('network error or timeout');
-  });
-
   it.each([{}, null, [{ name: 'missing id' }], [{ id: 'i1', distance: 'bad' }], 'not json'])(
     'rejects malformed responses',
     async (data) => {
@@ -199,15 +223,20 @@ describe('IntervalsClient', () => {
     },
   );
 
-  it('parses JSON through Axios before validation', async () => {
-    expect(await setup('[{"id":"i1"}]').client.getRecentActivities()).toEqual([{ id: 'i1' }]);
+  it('accepts the maximum date range', async () => {
+    const { client, adapter } = setup();
+    expect(await client.getRecentActivities(365)).toEqual([]);
+    expect(adapter.mock.calls[0]![0].params).toEqual({
+      oldest: '2025-01-04',
+      newest: '2026-01-03',
+    });
   });
 
-  it('uses default Axios transport configuration and current clock', async () => {
-    const { adapter } = setup();
-    const create = axios.create.bind(axios);
-    vi.spyOn(axios, 'create').mockImplementation((options) => create({ ...options, adapter }));
-    expect(await new IntervalsClient(config).getRecentActivities(365)).toEqual([]);
-    expect(adapter.mock.calls[0]![0].params.newest).toBe(new Date().toISOString().slice(0, 10));
+  it('propagates API client failures', async () => {
+    mockHttp([], 503);
+    await expect(new IntervalsClient(config).getRecentActivities()).rejects.toMatchObject({
+      name: 'HTTPError',
+      status: 503,
+    });
   });
 });

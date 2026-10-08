@@ -43,4 +43,5 @@ Tests use mocked HTTP responses and require no API credentials.
 Pre-commit hooks format and lint staged files, then run type checks and tests
 (`pnpm check:commit`). CI runs the full `pnpm check`, including coverage and build.
 Use [Conventional Commits](https://www.conventionalcommits.org/); releases are
-generated automatically from `main`.
+generated automatically from `main` as Git tags and GitHub Releases; release versions
+are not committed back to `package.json`.

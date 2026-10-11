@@ -7,6 +7,12 @@ on:
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -35,7 +41,19 @@ jobs:
       - name: Quality gates
         run: pnpm check
 
-      - name: Release
+      # A separate token lets release PRs trigger the required CI workflow.
+      - name: Verify release token
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm release
+          RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "::error::Add RELEASE_PLEASE_TOKEN with Contents, Pull requests, and Issues write permissions for this repository."
+            exit 1
+          fi
+
+      - name: Prepare release PR or publish merged release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

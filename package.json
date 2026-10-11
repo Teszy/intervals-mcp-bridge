@@ -1,6 +1,6 @@
 {
   "name": "intervals-mcp-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A lightweight MCP bridge for Intervals.icu training data",
   "keywords": [
     "typescript",
@@ -13,9 +13,9 @@
   },
   "private": true,
   "license": "MIT",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -27,9 +27,10 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "prepare": "husky",
-    "release": "semantic-release",
     "activities": "node --env-file-if-exists=.env --import tsx src/cli.ts",
-    "check:commit": "pnpm typecheck && pnpm test:run"
+    "check:commit": "pnpm typecheck && pnpm test:run",
+    "start": "node --env-file-if-exists=.env dist/src/index.js",
+    "mcp": "node --env-file-if-exists=.env --import tsx src/index.ts"
   },
   "prettier": {
     "singleQuote": true,
@@ -51,23 +52,6 @@
       "@commitlint/config-conventional"
     ]
   },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "plugins": [
-      "@semantic-release/commit-analyzer",
-      "@semantic-release/release-notes-generator",
-      [
-        "@semantic-release/github",
-        {
-          "successComment": false,
-          "failComment": false,
-          "releasedLabels": false
-        }
-      ]
-    ]
-  },
   "packageManager": "pnpm@12.6.0",
   "type": "module",
   "dependencies": {
@@ -79,9 +63,6 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@eslint/js": "^10.0.1",
-    "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/github": "^12.0.10",
-    "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/node": "^26.6.3",
     "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
@@ -90,7 +71,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.9",
-    "semantic-release": "^25.0.9",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",

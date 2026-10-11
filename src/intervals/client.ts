@@ -3,7 +3,7 @@ import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 
-const activitySchema = z.object({
+export const activitySchema = z.object({
   id: z.string().min(1),
   name: z.string().nullish(),
   type: z.string().nullish(),

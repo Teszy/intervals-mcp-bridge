@@ -69,7 +69,8 @@ messages; use `pnpm activities` for a terminal table.
 ## Contributing
 
 Pre-commit hooks format and lint staged files, then run type checks and tests
-(`pnpm check:commit`). CI runs the full `pnpm check`, including coverage and build.
+(`pnpm check:commit`). CI runs the full `pnpm check`, including coverage and build;
+on `main`, release automation runs only after Quality Gates passes.
 Use [Conventional Commits](https://www.conventionalcommits.org/). Release Please opens
 a PR updating `package.json` and `CHANGELOG.md`; merging it publishes the Git tag
 and GitHub Release. The MCP server reads its version from `package.json`.

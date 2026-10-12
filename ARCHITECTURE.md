@@ -21,6 +21,8 @@ Activity CLI ──────────────────────�
   returns `{ activities }`. `get_activity` fetches one session's metrics and
   detected intervals by ID, returning `{ activity }`. `src/mcp/result.ts` provides
   shared result formatting and sanitized error handling with a JSON text fallback.
+  `get_activity_streams` selects measurements and a time window, and caps output
+  using shared sample indices so timestamps and measurements remain aligned.
 - `src/intervals/config.ts` validates environment configuration with Zod.
   Entry-point commands load `.env`; reusable modules do not load files.
 - `src/intervals/client.ts` owns endpoint paths, UTC date bounds, and activity
@@ -39,7 +41,14 @@ fixed message. Credentials, raw responses, and arbitrary exception details are
 not included in tool errors. Empty activity lists are successful results.
 Missing measurements are preserved as absent or null, rather than filled with
 zero. Hidden activity stubs are rejected as unavailable session details. Only
-selected metrics are exposed; GPS coordinates and raw time-series data are omitted.
+Selected metrics and scalar streams are exposed; GPS coordinates are omitted.
+Streams require ordered elapsed timestamps and matching measurement lengths.
+The tool returns at most 500 points per stream, defaulting to 200. Longer windows
+are sampled by index with endpoints preserved; the output reports source, window,
+and returned counts plus a sampling flag. Sampling can miss short peaks and is
+unsuitable for exact averages or time-in-zone calculations. Time windows allow
+closer inspection without changing original elapsed timestamps. This bounds MCP
+output, not the upstream download size.
 
 Stdio has no network listener or separate user-authentication layer. The MCP host
 controls access to the local process; the configured API key controls upstream

@@ -56,8 +56,11 @@ Replace the paths with your checkout location. The server exposes
 `get_recent_activities` with optional `days` (1–365; default 7). It waits for MCP
 messages; use `pnpm activities` for a terminal table.
 Use `get_activity` with an ID from that list to retrieve session metrics and
-detected work/recovery intervals. Missing measurements remain unavailable;
-full time-series streams are not included yet.
+detected work/recovery intervals. `get_activity_streams` retrieves heart rate,
+speed, power, cadence, distance, or altitude over elapsed time. It returns up to
+200 samples by default (maximum 500); optional time bounds let you inspect an
+interval more closely. Missing measurements remain unavailable, and sampled
+results are marked explicitly.
 
 ## Links
 

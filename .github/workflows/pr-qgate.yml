@@ -1,5 +1,5 @@
 name: QGate Verification
-run-name: 'QGate Verification 🧪 | PR #${{ github.event.pull_request.number }}'
+run-name: '#${{ github.run_number }} | ${{ github.event.pull_request.title }}'
 
 on:
   pull_request:

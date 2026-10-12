@@ -4,6 +4,7 @@ import packageInfo from '../package.json' with { type: 'json' };
 import { createServer } from '../src/mcp/server.js';
 import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
+import { activityStreams } from './fixtures/streams.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -62,6 +63,15 @@ describe('MCP recent activities tool', () => {
             name: 'get_activity',
             inputSchema: { required: ['activityId'] },
             outputSchema: { properties: { activity: { type: 'object' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: 'get_activity_streams',
+            inputSchema: {
+              required: ['activityId'],
+              properties: { maxPoints: { minimum: 2, maximum: 500, default: 200 } },
+            },
+            outputSchema: { properties: { time: { type: 'array' }, sampled: { type: 'boolean' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
           },
         ],
@@ -133,6 +143,106 @@ describe('MCP recent activities tool', () => {
         content: [{ type: 'text', text: 'Unable to retrieve valid Intervals activities.' }],
       },
     });
+  });
+});
+
+describe('MCP activity streams tool', () => {
+  it('returns aligned measurements, units and missing-stream metadata without sampling short data', async () => {
+    mockHttp(activityStreams);
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'get_activity_streams',
+      arguments: { activityId: 'i42' },
+    });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: {
+          activityId: 'i42',
+          time: [0, 5, 10, 16, 30, 60],
+          streams: [
+            { type: 'heartrate', unit: 'beats per minute', data: [120, 130, null, 150, 155, 140] },
+            { type: 'velocity_smooth', unit: 'meters per second', data: [0, 2.5, 3, 3.5, 3, 0] },
+            { type: 'cadence', data: [null, null, null, null, null, null] },
+          ],
+          missingStreams: ['watts', 'cadence'],
+          totalPoints: 6,
+          windowPoints: 6,
+          returnedPoints: 6,
+          sampled: false,
+        },
+      },
+    });
+    if ('result' in response) {
+      const result = response.result as { structuredContent: unknown; content: { text: string }[] };
+      expect(JSON.parse(result.content[0]!.text)).toEqual(result.structuredContent);
+    }
+  });
+
+  it('caps output and keeps the same sample indices across all streams and both endpoints', async () => {
+    mockHttp(activityStreams);
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_streams',
+        arguments: { activityId: 'i42', types: ['heartrate', 'altitude'], maxPoints: 3 },
+      }),
+    ).toMatchObject({
+      result: {
+        structuredContent: {
+          time: [0, 10, 60],
+          streams: [{ data: [120, null, 140] }, { data: [-5, -3, 0] }],
+          returnedPoints: 3,
+          windowPoints: 6,
+          sampled: true,
+        },
+      },
+    });
+  });
+
+  it.each([
+    [5, 30, [5, 10, 16, 30]],
+    [61, undefined, []],
+    [undefined, 0, [0]],
+  ])('selects an inclusive time window %s to %s', async (startTime, endTime, expectedTime) => {
+    mockHttp(activityStreams);
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_streams',
+        arguments: { activityId: 'i42', types: ['heartrate'], startTime, endTime },
+      }),
+    ).toHaveProperty('result.structuredContent.time', expectedTime);
+  });
+
+  it.each([
+    { types: ['latlng'] },
+    { types: [] },
+    { maxPoints: 1 },
+    { maxPoints: 501 },
+    { maxPoints: 2.5 },
+    { startTime: -1 },
+    { startTime: 10, endTime: 5 },
+  ])('rejects invalid selections and bounds %j before requesting', async (args) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_streams',
+        arguments: { activityId: 'i42', ...args },
+      }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
+  it('reports unavailable streams without leaking upstream data', async () => {
+    mockHttp({ _note: 'private response details' });
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'get_activity_streams',
+      arguments: { activityId: 'i42' },
+    });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('private response details');
   });
 });
 

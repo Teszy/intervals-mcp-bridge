@@ -55,6 +55,9 @@ an `mcpServers` configuration:
 Replace the paths with your checkout location. The server exposes
 `get_recent_activities` with optional `days` (1–365; default 7). It waits for MCP
 messages; use `pnpm activities` for a terminal table.
+Use `get_activity` with an ID from that list to retrieve session metrics and
+detected work/recovery intervals. Missing measurements remain unavailable;
+full time-series streams are not included yet.
 
 ## Links
 

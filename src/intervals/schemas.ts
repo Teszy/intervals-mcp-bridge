@@ -51,3 +51,37 @@ export const activityDetailsSchema = activitySchema.extend({
 
 export type ActivitySummary = z.infer<typeof activitySchema>;
 export type ActivityDetails = z.infer<typeof activityDetailsSchema>;
+
+export const activityStreamTypeSchema = z.enum([
+  'heartrate',
+  'velocity_smooth',
+  'watts',
+  'cadence',
+  'distance',
+  'altitude',
+]);
+
+export const activityStreamTypesSchema = z.array(activityStreamTypeSchema).min(1).max(6);
+export const defaultActivityStreamTypes: ActivityStreamType[] = [
+  'heartrate',
+  'velocity_smooth',
+  'watts',
+  'cadence',
+];
+
+export const activityStreamSchema = z.object({
+  type: activityStreamTypeSchema,
+  data: z.array(z.number().nullable()),
+});
+
+/** Upstream streams also include time; unrequested scalar streams are discarded. */
+export const activityStreamsResponseSchema = z.array(
+  z.object({ type: z.string(), data: z.array(z.number().nullable()) }),
+);
+
+export type ActivityStreamType = z.infer<typeof activityStreamTypeSchema>;
+export type ActivityStreams = {
+  time: number[];
+  streams: z.infer<typeof activityStreamSchema>[];
+  missingStreams: ActivityStreamType[];
+};

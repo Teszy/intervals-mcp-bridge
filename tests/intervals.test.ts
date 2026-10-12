@@ -3,6 +3,7 @@ import { IntervalsClient } from '../src/intervals/client.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
 import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
+import { activityStreams } from './fixtures/streams.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -67,6 +68,47 @@ describe('IntervalsClient activity details', () => {
     await expect(
       setup({ ...activityDetails, id: 'i99' }).client.getActivity('i42'),
     ).rejects.toThrow('different activity');
+  });
+});
+
+describe('IntervalsClient activity streams', () => {
+  it('requests time with selected measurements and preserves missing data', async () => {
+    const { client, adapter } = setup(activityStreams);
+    expect(await client.getActivityStreams('i42')).toEqual({
+      time: activityStreams[0]!.data,
+      streams: activityStreams.slice(1, 4),
+      missingStreams: ['watts', 'cadence'],
+    });
+    expect(adapter.mock.calls[0]![0]).toMatchObject({
+      url: '/activity/i42/streams.json',
+      params: { types: 'time,heartrate,velocity_smooth,watts,cadence', includeDefaults: false },
+    });
+  });
+
+  it('deduplicates selections and accepts below-sea-level altitude', async () => {
+    const { client, adapter } = setup(activityStreams);
+    const result = await client.getActivityStreams('123', ['altitude', 'altitude']);
+    expect(result.streams).toEqual([activityStreams[4]]);
+    expect(result.missingStreams).toEqual([]);
+    expect(adapter.mock.calls[0]![0].params.types).toBe('time,altitude');
+  });
+
+  it('rejects invalid identifiers and empty selections before requesting', async () => {
+    const { client, adapter } = setup();
+    await expect(client.getActivityStreams('../i42')).rejects.toThrow('Invalid activity ID');
+    await expect(client.getActivityStreams('i42', [])).rejects.toThrow('Invalid activity stream');
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['malformed data', [{ type: 'time', data: 'not an array' }]],
+    ['duplicate streams', [activityStreams[0], activityStreams[0]]],
+    ['missing timestamps', []],
+    ['null timestamps', [{ type: 'time', data: [0, null] }]],
+    ['unordered timestamps', [{ type: 'time', data: [5, 0] }]],
+    ['misaligned values', [activityStreams[0], { type: 'heartrate', data: [120] }]],
+  ])('rejects %s', async (_name, data) => {
+    await expect(setup(data).client.getActivityStreams('i42')).rejects.toThrow('Intervals API');
   });
 });
 

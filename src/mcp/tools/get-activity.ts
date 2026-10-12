@@ -13,7 +13,7 @@ export function registerGetActivityTool(server: McpServer, client: IntervalsClie
     {
       title: 'Activity details',
       description:
-        'Fetch session metrics and detected work/recovery intervals for an activity. Use an ID from get_recent_activities. Missing or null measurements are unavailable, not zero. Speeds are meters per second; cadence units depend on sport and recording source. Full time-series streams are not included.',
+        'Fetch session metrics and detected work/recovery intervals for an activity. Use an ID from get_recent_activities. Missing or null measurements are unavailable, not zero. Speeds are meters per second; cadence units depend on sport and recording source. Use get_activity_streams for measurements over time.',
       inputSchema,
       outputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },

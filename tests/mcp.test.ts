@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import packageInfo from '../package.json' with { type: 'json' };
 import { createServer } from '../src/mcp/server.js';
 import { mockHttp } from './helpers/http.js';
+import { activityDetails } from './fixtures/activities.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -56,6 +57,12 @@ describe('MCP recent activities tool', () => {
             inputSchema: { properties: { days: { minimum: 1, maximum: 365, default: 7 } } },
             outputSchema: { properties: { activities: { type: 'array' } } },
             annotations: { readOnlyHint: true },
+          },
+          {
+            name: 'get_activity',
+            inputSchema: { required: ['activityId'] },
+            outputSchema: { properties: { activity: { type: 'object' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
           },
         ],
       },
@@ -126,5 +133,67 @@ describe('MCP recent activities tool', () => {
         content: [{ type: 'text', text: 'Unable to retrieve valid Intervals activities.' }],
       },
     });
+  });
+});
+
+describe('MCP activity details tool', () => {
+  it('returns session metrics and intervals as structured content and text', async () => {
+    mockHttp(activityDetails);
+    const request = await connect();
+    expect(
+      await request('tools/call', { name: 'get_activity', arguments: { activityId: 'i42' } }),
+    ).toMatchObject({
+      result: {
+        structuredContent: { activity: activityDetails },
+        content: [{ type: 'text', text: JSON.stringify({ activity: activityDetails }) }],
+      },
+    });
+  });
+
+  it.each([{}, { activityId: '../i42' }])(
+    'rejects invalid inputs before requesting',
+    async (args) => {
+      const adapter = mockHttp();
+      const request = await connect();
+      expect(await request('tools/call', { name: 'get_activity', arguments: args })).toHaveProperty(
+        'result.isError',
+        true,
+      );
+      expect(adapter).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reports missing activities as sanitized HTTP errors', async () => {
+    mockHttp('private activity contents', 404);
+    const request = await connect();
+    expect(
+      await request('tools/call', { name: 'get_activity', arguments: { activityId: 'i42' } }),
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ type: 'text', text: 'HTTP request failed (HTTP 404).' }],
+      },
+    });
+  });
+
+  it('does not treat hidden activity stubs as usable session data', async () => {
+    mockHttp({ id: 'i42', source: 'STRAVA', _note: 'private restriction details' });
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'get_activity',
+      arguments: { activityId: 'i42' },
+    });
+    expect(response).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: 'Unable to retrieve valid activity details. The activity may be unavailable through the Intervals API.',
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('private restriction details');
   });
 });

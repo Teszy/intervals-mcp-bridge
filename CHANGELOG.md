@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.4.0...v0.5.0) (2026-10-12)
+
+
+### Features
+
+* add activity streams retrieval through MCP ([#13](https://github.com/Teszy/intervals-mcp-bridge/issues/13)) ([4aed753](https://github.com/Teszy/intervals-mcp-bridge/commit/4aed7530391e391915126a62bbf6c5a67652c017))
+
 ## [0.4.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.3.0...v0.4.0) (2026-10-12)
 
 

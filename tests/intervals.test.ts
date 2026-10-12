@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntervalsClient } from '../src/intervals/client.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
 import { mockHttp } from './helpers/http.js';
+import { activityDetails } from './fixtures/activities.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -27,6 +28,46 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
+});
+
+describe('IntervalsClient activity details', () => {
+  it('requests interval data and returns only validated fields', async () => {
+    const { client, adapter } = setup({ ...activityDetails, start_latlng: [47, 19] });
+    expect(await client.getActivity('i42')).toEqual(activityDetails);
+    expect(adapter).toHaveBeenCalledOnce();
+    expect(adapter.mock.calls[0]![0]).toMatchObject({
+      url: '/activity/i42',
+      method: 'get',
+      params: { intervals: true },
+    });
+  });
+
+  it('preserves null and omitted measurements without inventing values', async () => {
+    const data = { id: '123', moving_time: 0, average_heartrate: null, icu_intervals: [] };
+    expect(await setup(data).client.getActivity('123')).toEqual(data);
+  });
+
+  it.each(['', '../i42', 'i42?intervals=false'])('rejects unsafe activity ID %j', async (id) => {
+    const { client, adapter } = setup(activityDetails);
+    await expect(client.getActivity(id)).rejects.toThrow('Invalid activity ID');
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { id: 'i42', source: 'STRAVA', _note: 'private restriction details' },
+    { ...activityDetails, average_heartrate: 'bad' },
+    { ...activityDetails, icu_intervals: [{ id: 1, moving_time: -1 }] },
+  ])('rejects hidden stubs and malformed measurements', async (data) => {
+    await expect(setup(data).client.getActivity('i42')).rejects.toThrow(
+      'invalid or unavailable activity details',
+    );
+  });
+
+  it('rejects a response belonging to another activity', async () => {
+    await expect(
+      setup({ ...activityDetails, id: 'i99' }).client.getActivity('i42'),
+    ).rejects.toThrow('different activity');
+  });
 });
 
 describe('Intervals configuration', () => {

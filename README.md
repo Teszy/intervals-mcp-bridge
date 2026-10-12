@@ -68,15 +68,25 @@ messages; use `pnpm activities` for a terminal table.
 
 ## Contributing
 
-Pre-commit hooks format and lint staged files, then run type checks and tests
-(`pnpm check:commit`). CI runs the full `pnpm check`, including coverage and build;
-on `main`, release automation runs only after Quality Gates passes.
-Use [Conventional Commits](https://www.conventionalcommits.org/). Release Please opens
-a PR updating `package.json` and `CHANGELOG.md`; merging it publishes the Git tag
-and GitHub Release. The MCP server reads its version from `package.json`.
+Use [Conventional Commits](https://www.conventionalcommits.org/), enforced by
+commitlint. Husky and lint-staged format and lint staged files before committing,
+then run `pnpm check:commit` (type checks and tests).
 
-Release automation requires the repository Actions secret `RELEASE_PLEASE_TOKEN`:
-a fine-grained GitHub token restricted to this repository with Contents, Pull
-requests, and Issues read/write permissions. This lets release PRs trigger CI
-without bypassing branch protection. See the
-[Release Please setup](https://github.com/googleapis/release-please-action#github-credentials).
+## CI/CD
+
+GitHub Actions runs two workflows:
+
+- [QGate Verification](.github/workflows/pr-qgate.yml) checks PRs, including release
+  PRs. Its **Quality Gates** check is required before merging.
+- [Release Engine](.github/workflows/release.yml) validates pushes to `main`, then
+  runs Release Please to prepare a release PR or publish a merged release.
+
+Both use `pnpm check`: Prettier formatting, ESLint, TypeScript type checks,
+Vitest tests with coverage, and a build. Run it locally to reproduce validation;
+use `pnpm format` to fix formatting. Scripts are defined in [package.json](package.json).
+
+[Release Please](https://github.com/googleapis/release-please-action) uses
+Conventional Commits to update `package.json` and generate `CHANGELOG.md` in a PR.
+Merging that PR publishes the Git tag and GitHub Release after validation.
+The generated changelog is excluded from Prettier checks; the MCP server reads
+its version from `package.json`.

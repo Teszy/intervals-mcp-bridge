@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.7.0...v0.8.0) (2026-10-13)
+
+
+### Features
+
+* **mcp:** add activity workload and daily wellness MCP tools ([#19](https://github.com/Teszy/intervals-mcp-bridge/issues/19)) ([ab35cf8](https://github.com/Teszy/intervals-mcp-bridge/commit/ab35cf80cf7f7874034f89859b9cd6ce9dcd6f56))
+
 ## [0.7.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.6.0...v0.7.0) (2026-10-13)
 
 

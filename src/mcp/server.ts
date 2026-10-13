@@ -2,16 +2,20 @@ import { McpServer } from '@modelcontextprotocol/server';
 import packageInfo from '../../package.json' with { type: 'json' };
 import { IntervalsClient } from '../intervals/client.js';
 import type { IntervalsConfig } from '../intervals/config.js';
-import { registerGetActivityTool } from './tools/get-activity.js';
-import { registerGetActivityStreamsTool } from './tools/get-activity-streams.js';
-import { registerGetRecentActivitiesTool } from './tools/get-recent-activities.js';
+import { registerGetActivityDetailsTool } from './tools/get-activity-details.js';
+import { registerGetActivityStreamPageTool } from './tools/get-activity-stream-page.js';
+import { registerGetActivityStreamOverviewTool } from './tools/get-activity-stream-overview.js';
+import { registerGetActivityStreamStatisticsTool } from './tools/get-activity-stream-statistics.js';
+import { registerListRecentActivitiesTool } from './tools/list-recent-activities.js';
 
 /** Build the tool registry without opening a transport or making API requests. */
 export function createServer(config: IntervalsConfig): McpServer {
   const client = new IntervalsClient(config);
   const server = new McpServer({ name: packageInfo.name, version: packageInfo.version });
-  registerGetRecentActivitiesTool(server, client);
-  registerGetActivityTool(server, client);
-  registerGetActivityStreamsTool(server, client);
+  registerListRecentActivitiesTool(server, client);
+  registerGetActivityDetailsTool(server, client);
+  registerGetActivityStreamOverviewTool(server, client);
+  registerGetActivityStreamPageTool(server, client);
+  registerGetActivityStreamStatisticsTool(server, client);
   return server;
 }

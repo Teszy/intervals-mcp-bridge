@@ -80,6 +80,15 @@ export const activityStreamsResponseSchema = z.array(
 );
 
 export type ActivityStreamType = z.infer<typeof activityStreamTypeSchema>;
+export const activityStreamUnits: Record<ActivityStreamType, string> = {
+  heartrate: 'beats per minute',
+  velocity_smooth: 'meters per second',
+  watts: 'watts (Intervals corrected power)',
+  cadence: 'recorded cadence; units depend on sport and source',
+  distance: 'meters (cumulative)',
+  altitude: 'meters',
+};
+
 export type ActivityStreams = {
   time: number[];
   streams: z.infer<typeof activityStreamSchema>[];

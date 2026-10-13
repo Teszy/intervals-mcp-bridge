@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.6.0...v0.7.0) (2026-10-13)
+
+
+### Features
+
+* add athlete settings and training zones with schema-validated API responses ([#17](https://github.com/Teszy/intervals-mcp-bridge/issues/17)) ([70892fa](https://github.com/Teszy/intervals-mcp-bridge/commit/70892fae39578261ce3eb241ea07d08b3bc99aa9))
+
 ## [0.6.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.5.0...v0.6.0) (2026-10-13)
 
 

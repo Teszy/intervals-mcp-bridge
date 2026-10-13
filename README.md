@@ -155,3 +155,36 @@ Custom zone definitions are not included in this first implementation.
 
 Contracts are based on the [official OpenAPI schema](https://intervals.icu/api/v1/docs)
 and the [Intervals data model](https://forum.intervals.icu/t/server-side-data-model-for-scripts/25781).
+
+## Activity workload and daily wellness
+
+Two read-only tools expose training and recovery context over the same explicit
+athlete-local date range. `oldest` and `newest` are inclusive `YYYY-MM-DD` dates;
+a request may span at most 90 calendar days. For longer periods, use adjacent
+non-overlapping ranges. Use the timezone returned by `get_athlete_settings` to
+resolve “today” or “last week”; these tools do not infer dates from the server clock.
+
+- “Compare the load of my recent sessions.”
+  `{"name":"list_activity_workload","arguments":{"oldest":"2026-10-01","newest":"2026-10-13"}}`.
+  Returns each activity's recorded load, intensity, duration, distance and optional
+  perceived exertion. `icu_training_load` is the selected Intervals load; power,
+  heart-rate and pace loads are alternative estimates and must not be added together.
+- “How has my recovery changed over the same period?”
+  `{"name":"list_wellness","arguments":{"oldest":"2026-10-01","newest":"2026-10-13"}}`.
+  Returns daily records oldest first, with upstream CTL/ATL, ramp rate, sleep,
+  resting heart rate, HRV, weight and subjective recovery ratings where available.
+
+Wellness means recorded daily state; it does not require users to enter data.
+Absent days and missing/null values stay unknown, rather than becoming zeros or
+rest days. Restricted activities may expose only an ID, so missing session loads
+prevent a complete period total. CTL (fitness) and ATL (modeled fatigue) are returned
+from Intervals, not recalculated; ATL is distinct from the subjective `fatigue` rating.
+The bridge does not derive form or prescribe a workout from these values.
+
+Sleep duration is in seconds, resting heart rate in bpm, HRV in milliseconds and
+weight in kilograms. HRV rMSSD (`hrv`) and SDNN (`hrvSDNN`) are separate metrics.
+Subjective rating scales are described in the output schema; a higher value can
+mean a worse state, and source-provided `sleepScore` scales can vary.
+`tempWeight` and `tempRestingHR` flag settings-derived values rather than authoritative
+daily observations. Today may contain incomplete data. Comments, custom fields and
+unselected personal fields are excluded from tool responses.

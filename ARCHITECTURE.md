@@ -32,6 +32,13 @@ Activity CLI ──────────────────────�
   a curated set of training fields and strips unrelated fields, including account
   credentials. Zones retain upstream units and upper-limit semantics; no automatic
   conversion to statistics boundaries is performed. Empty profile lists are valid.
+- `list_activity_workload` and `list_wellness` accept a shared validated date range
+  of at most 90 inclusive athlete-local calendar days. The client calls activities
+  and wellness endpoints separately with those dates. Workload exposes recorded
+  session metrics; wellness exposes curated recovery fields and upstream CTL/ATL.
+  Wellness records are ordered oldest first and duplicate/out-of-range dates are
+  rejected. Missing dates and null values are preserved; no fitness model, period
+  totals or missing observations are generated.
 - `src/intervals/config.ts` validates environment configuration with Zod.
   Entry-point commands load `.env`; reusable modules do not load files.
 - `src/intervals/client.ts` owns endpoint paths, UTC date bounds, and activity

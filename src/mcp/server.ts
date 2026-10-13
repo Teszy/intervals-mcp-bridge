@@ -1,3 +1,4 @@
+import { registerGetAthleteSettingsTool } from './tools/get-athlete-settings.js';
 import { McpServer } from '@modelcontextprotocol/server';
 import packageInfo from '../../package.json' with { type: 'json' };
 import { IntervalsClient } from '../intervals/client.js';
@@ -17,5 +18,6 @@ export function createServer(config: IntervalsConfig): McpServer {
   registerGetActivityStreamOverviewTool(server, client);
   registerGetActivityStreamPageTool(server, client);
   registerGetActivityStreamStatisticsTool(server, client);
+  registerGetAthleteSettingsTool(server, client);
   return server;
 }

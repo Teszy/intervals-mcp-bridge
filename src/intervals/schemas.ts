@@ -251,3 +251,80 @@ export const wellnessSchema = z.object({
     .describe('True: resting HR came from settings, not an authoritative daily observation'),
 });
 export type Wellness = z.infer<typeof wellnessSchema>;
+
+const fitTextSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(
+    (text) => !text.includes('\0') && Buffer.byteLength(text, 'utf8') <= 100,
+    'FIT text must contain no NUL and fit within 100 UTF-8 bytes.',
+  );
+const workoutTargetSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('open') }).strict(),
+    z
+      .object({
+        type: z.literal('heartRate'),
+        low: z.number().int().min(1).max(300),
+        high: z.number().int().min(1).max(300),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('power'),
+        low: z.number().int().min(1).max(3000),
+        high: z.number().int().min(1).max(3000),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal('speed'),
+        low: z.number().positive().max(50).multipleOf(0.001),
+        high: z.number().positive().max(50).multipleOf(0.001),
+      })
+      .strict(),
+  ])
+  .refine(
+    (target) => target.type === 'open' || target.high >= target.low,
+    'Target high must be at least low.',
+  );
+
+export const plannedWorkoutStepSchema = z
+  .object({
+    name: fitTextSchema,
+    intensity: z.enum(['warmup', 'active', 'recovery', 'cooldown']).default('active'),
+    duration: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('time'), seconds: z.number().int().min(1).max(86400) }).strict(),
+      z
+        .object({ type: z.literal('distance'), meters: z.number().int().min(1).max(1000000) })
+        .strict(),
+    ]),
+    target: workoutTargetSchema.default({ type: 'open' }),
+  })
+  .strict();
+
+export const plannedWorkoutSchema = z
+  .object({
+    name: fitTextSchema,
+    sport: z.enum(['Run', 'Ride']),
+    startDateLocal: z.iso
+      .datetime({ local: true, precision: 0 })
+      .refine(
+        (value) => !value.endsWith('Z'),
+        'Use athlete-local YYYY-MM-DDTHH:mm:ss without a timezone suffix.',
+      ),
+    steps: z.array(plannedWorkoutStepSchema).min(1).max(50),
+  })
+  .strict();
+export type PlannedWorkout = z.infer<typeof plannedWorkoutSchema>;
+
+export const plannedWorkoutEventSchema = z.object({
+  id: z.number().int().positive(),
+  category: z.literal('WORKOUT'),
+  start_date_local: z.string().min(1),
+  name: z.string().nullish(),
+  type: z.string().nullish(),
+  external_id: z.string().nullish(),
+});
+export type PlannedWorkoutEvent = z.infer<typeof plannedWorkoutEventSchema>;

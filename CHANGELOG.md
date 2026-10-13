@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.5.0...v0.6.0) (2026-10-13)
+
+
+### Features
+
+* add activity stream statistics and pagination with clearer tool names ([#15](https://github.com/Teszy/intervals-mcp-bridge/issues/15)) ([e1229c6](https://github.com/Teszy/intervals-mcp-bridge/commit/e1229c60ced819b79e6455de4792d2ff13d7b616))
+
 ## [0.5.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.4.0...v0.5.0) (2026-10-12)
 
 

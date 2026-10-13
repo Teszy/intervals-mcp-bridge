@@ -1,6 +1,6 @@
 {
   "name": "intervals-mcp-bridge",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A lightweight MCP bridge for Intervals.icu training data",
   "keywords": [
     "typescript",

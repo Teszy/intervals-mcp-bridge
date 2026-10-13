@@ -3,6 +3,10 @@ import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 import {
+  plannedWorkoutEventSchema,
+  plannedWorkoutSchema,
+  type PlannedWorkout,
+  type PlannedWorkoutEvent,
   activityWorkloadSchema,
   wellnessSchema,
   trainingDateRangeSchema,
@@ -43,6 +47,28 @@ export class IntervalsClient {
       password: this.#config.apiKey,
     };
     this.#api = new APIClient(this.#config.baseURL, basicAuth);
+  }
+
+  /** Create a planned calendar workout from a validated FIT preview. No automatic retries. */
+  async publishPlannedWorkout(
+    workout: PlannedWorkout,
+    fit: Uint8Array,
+    externalId: string,
+  ): Promise<PlannedWorkoutEvent> {
+    const plan = plannedWorkoutSchema.parse(workout);
+    return this.#api.post(
+      `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
+      plannedWorkoutEventSchema,
+      {
+        category: 'WORKOUT',
+        type: plan.sport,
+        name: plan.name,
+        start_date_local: plan.startDateLocal,
+        external_id: externalId,
+        filename: 'workout.fit',
+        file_contents_base64: Buffer.from(fit).toString('base64'),
+      },
+    );
   }
 
   /** Fetch session workload in an inclusive athlete-local date range. */

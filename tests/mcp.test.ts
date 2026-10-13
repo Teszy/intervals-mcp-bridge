@@ -1,3 +1,4 @@
+import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import packageInfo from '../package.json' with { type: 'json' };
@@ -110,6 +111,15 @@ describe('MCP recent activities tool', () => {
             inputSchema: { required: ['oldest', 'newest'] },
             outputSchema: { properties: { wellness: { type: 'array' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: 'preview_planned_workout',
+            annotations: { readOnlyHint: true, openWorldHint: false },
+          },
+          {
+            name: 'publish_planned_workout',
+            inputSchema: { required: ['draftId', 'approved'] },
+            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
           },
         ],
       },
@@ -659,5 +669,95 @@ describe.each([
     const response = await request('tools/call', { name, arguments: dates });
     expect(response).toHaveProperty('result.isError', true);
     expect(JSON.stringify(response)).not.toContain('secret');
+  });
+});
+
+describe('MCP planned workouts', () => {
+  it('previews without a write and publishes the approved draft only once', async () => {
+    const adapter = mockHttp(plannedEvent);
+    const request = await connect();
+    const preview = await request('tools/call', {
+      name: 'preview_planned_workout',
+      arguments: { workout: plannedWorkout },
+    });
+    expect(preview).toMatchObject({
+      result: {
+        structuredContent: {
+          status: 'ready',
+          workout: plannedWorkout,
+          timedSeconds: 720,
+          totalDurationKnown: false,
+        },
+      },
+    });
+    expect(adapter).not.toHaveBeenCalled();
+    if (!('result' in preview)) throw new Error('Missing preview');
+    const { draftId } = (preview.result as { structuredContent: { draftId: string } })
+      .structuredContent;
+    const args = { draftId, approved: true };
+    const published = await request('tools/call', {
+      name: 'publish_planned_workout',
+      arguments: args,
+    });
+    expect(published).toMatchObject({
+      result: { structuredContent: { draftId, event: plannedEvent } },
+    });
+    expect(
+      await request('tools/call', { name: 'publish_planned_workout', arguments: args }),
+    ).toMatchObject({ result: { structuredContent: { event: plannedEvent } } });
+    expect(adapter).toHaveBeenCalledTimes(1);
+  });
+  it.each([undefined, false])('requires explicit approved=true, received %s', async (approved) => {
+    const adapter = mockHttp(plannedEvent);
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'publish_planned_workout',
+      arguments: { draftId: '00000000-0000-4000-8000-000000000000', approved },
+    });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it('rejects unknown draft IDs without writing', async () => {
+    const adapter = mockHttp(plannedEvent);
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'publish_planned_workout',
+        arguments: { draftId: '00000000-0000-4000-8000-000000000000', approved: true },
+      }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it('rejects unsupported preview steps before HTTP', async () => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'preview_planned_workout',
+        arguments: { workout: { ...plannedWorkout, steps: [] } },
+      }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it('sanitizes uncertain outcomes and prevents retry writes', async () => {
+    const adapter = mockHttp({ secret: 'upstream private data' }, 500);
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'preview_planned_workout',
+      arguments: { workout: plannedWorkout },
+    });
+    if (!('result' in response)) throw new Error('Missing preview');
+    const { draftId } = (response.result as { structuredContent: { draftId: string } })
+      .structuredContent;
+    for (let i = 0; i < 2; i++) {
+      const published = await request('tools/call', {
+        name: 'publish_planned_workout',
+        arguments: { draftId, approved: true },
+      });
+      expect(published).toHaveProperty('result.isError', true);
+      expect(JSON.stringify(published)).not.toContain('upstream private data');
+      expect(JSON.stringify(published)).toContain('inspect the Intervals calendar');
+    }
+    expect(adapter).toHaveBeenCalledTimes(1);
   });
 });

@@ -55,6 +55,7 @@
   "packageManager": "pnpm@12.6.0",
   "type": "module",
   "dependencies": {
+    "@garmin/fitsdk": "^21.218.0",
     "@modelcontextprotocol/server": "^2.1.0",
     "axios": "^1.20.0",
     "zod": "^4.6.5"

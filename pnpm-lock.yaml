@@ -207,6 +207,9 @@ settings:
 importers:
   .:
     dependencies:
+      '@garmin/fitsdk':
+        specifier: ^21.218.0
+        version: 21.218.0
       '@modelcontextprotocol/server':
         specifier: ^2.1.0
         version: 2.1.0
@@ -757,6 +760,12 @@ packages:
         integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==,
       }
     engines: { node: ^20.19.0 || ^22.13.0 || >=24 }
+
+  '@garmin/fitsdk@21.218.0':
+    resolution:
+      {
+        integrity: sha512-Jbhedp3AJ/xJBSuiPBlPpwH5QISXd+GYtfnAUZ3u68hUqkzHiRWUhla8xj4tW/05w6gKsErEt+7GQCFap+a2kQ==,
+      }
 
   '@humanfs/core@0.19.2':
     resolution:
@@ -2837,6 +2846,8 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@garmin/fitsdk@21.218.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

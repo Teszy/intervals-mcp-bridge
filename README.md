@@ -188,3 +188,69 @@ mean a worse state, and source-provided `sleepScore` scales can vary.
 `tempWeight` and `tempRestingHR` flag settings-derived values rather than authoritative
 daily observations. Today may contain incomplete data. Comments, custom fields and
 unselected personal fields are excluded from tool responses.
+
+## Planned workouts and FIT publication
+
+`preview_planned_workout` builds a structured workout, validates it, generates a
+FIT file using the official Garmin SDK, and checks its integrity by decoding it.
+It does not write to Intervals. The first version supports `Run` and `Ride`, with
+1–50 sequential steps. Each step has a time duration in whole seconds or a distance
+in whole meters, plus an open target or absolute heart-rate (bpm), power (watts),
+or speed (m/s) range. Expand repeated interval blocks into sequential steps.
+Relative targets, named zones, ramps, swim steps and open-ended durations are not
+accepted; resolve agreed targets to absolute values before previewing.
+
+Example: “Preview a 30-minute easy run tomorrow at 9, with my agreed 120–140 bpm target.”
+Resolve tomorrow using the athlete timezone from `get_athlete_settings`, then call:
+
+```json
+{
+  "name": "preview_planned_workout",
+  "arguments": {
+    "workout": {
+      "name": "Easy run",
+      "sport": "Run",
+      "startDateLocal": "2026-10-14T09:00:00",
+      "steps": [
+        {
+          "name": "Easy running",
+          "intensity": "active",
+          "duration": { "type": "time", "seconds": 1800 },
+          "target": { "type": "heartRate", "low": 120, "high": 140 }
+        }
+      ]
+    }
+  }
+}
+```
+
+Show the returned local date, sport, all steps and target ranges to the user.
+For mixed time/distance workouts, `timedSeconds` and `distanceMeters` describe only
+those respective steps; `totalDurationKnown` is false. Speed targets use 0.001 m/s
+precision. Pace in seconds/km converts to `1000 / pace` m/s; faster pace gives the
+higher speed bound. Names must fit in 100 UTF-8 bytes and cannot contain NUL.
+
+After the user explicitly approves that exact preview, call:
+
+```json
+{
+  "name": "publish_planned_workout",
+  "arguments": { "draftId": "<UUID returned by preview>", "approved": true }
+}
+```
+
+The server sends the stored FIT bytes to the configured athlete's calendar as a
+`WORKOUT`. It returns the created event ID. Any change needs a new preview and
+approval. The approval flag is a host/LLM contract; the server cannot independently
+verify the conversation's user consent. Device sync depends on Intervals settings.
+
+Drafts exist in memory for one server session, with at most 100 distinct previews.
+Identical input reuses the same draft. Successful repeat publication returns the
+stored event without another write; concurrent and uncertain attempts are blocked.
+After a failed write, inspect the calendar before creating another draft or restarting,
+because the event may already exist. This session protection does not provide
+idempotency across server restarts. No existing events are updated or deleted.
+Calendar publication needs upstream calendar write access (`CALENDAR:WRITE` for OAuth).
+
+Contracts follow the [Intervals planned-workout upload guide](https://forum.intervals.icu/t/uploading-planned-workouts-to-intervals-icu/63624)
+and [Garmin FIT workout format](https://developer.garmin.com/fit/articles/file-types/workout.html).

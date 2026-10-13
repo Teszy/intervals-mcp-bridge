@@ -1,3 +1,6 @@
+import { WorkoutDrafts } from '../workouts/drafts.js';
+import { registerPreviewPlannedWorkoutTool } from './tools/preview-planned-workout.js';
+import { registerPublishPlannedWorkoutTool } from './tools/publish-planned-workout.js';
 import { registerListActivityWorkloadTool } from './tools/list-activity-workload.js';
 import { registerListWellnessTool } from './tools/list-wellness.js';
 import { registerGetAthleteSettingsTool } from './tools/get-athlete-settings.js';
@@ -23,5 +26,8 @@ export function createServer(config: IntervalsConfig): McpServer {
   registerGetAthleteSettingsTool(server, client);
   registerListActivityWorkloadTool(server, client);
   registerListWellnessTool(server, client);
+  const drafts = new WorkoutDrafts();
+  registerPreviewPlannedWorkoutTool(server, drafts);
+  registerPublishPlannedWorkoutTool(server, client, drafts);
   return server;
 }

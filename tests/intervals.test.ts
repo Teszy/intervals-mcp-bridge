@@ -1,3 +1,4 @@
+import { APIResponseValidationError } from '../src/api/errors.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntervalsClient } from '../src/intervals/client.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
@@ -60,7 +61,7 @@ describe('IntervalsClient activity details', () => {
     { ...activityDetails, icu_intervals: [{ id: 1, moving_time: -1 }] },
   ])('rejects hidden stubs and malformed measurements', async (data) => {
     await expect(setup(data).client.getActivity('i42')).rejects.toThrow(
-      'invalid or unavailable activity details',
+      'API response does not match the expected schema.',
     );
   });
 
@@ -108,7 +109,12 @@ describe('IntervalsClient activity streams', () => {
     ['unordered timestamps', [{ type: 'time', data: [5, 0] }]],
     ['misaligned values', [activityStreams[0], { type: 'heartrate', data: [120] }]],
   ])('rejects %s', async (_name, data) => {
-    await expect(setup(data).client.getActivityStreams('i42')).rejects.toThrow('Intervals API');
+    const operation = setup(data).client.getActivityStreams('i42');
+    if (_name === 'malformed data') {
+      await expect(operation).rejects.toBeInstanceOf(APIResponseValidationError);
+    } else {
+      await expect(operation).rejects.toThrow('Intervals API');
+    }
   });
 });
 
@@ -301,7 +307,7 @@ describe('IntervalsClient', () => {
     'rejects malformed responses',
     async (data) => {
       await expect(setup(data).client.getRecentActivities()).rejects.toThrow(
-        'invalid activities response',
+        'API response does not match the expected schema.',
       );
     },
   );

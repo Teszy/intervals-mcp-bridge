@@ -1,5 +1,6 @@
+import { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
-import { Forbidden, HTTPError, Unauthorized } from './errors.js';
+import { APIResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
 import type { Auth, QueryParams } from './types.js';
 
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
@@ -12,32 +13,51 @@ export class APIClient {
     this.#auth = auth ? { ...auth } : undefined;
   }
 
-  async get<T = unknown>(endpoint = '', params?: QueryParams, signal?: AbortSignal): Promise<T> {
-    return this.#request(async (client) => {
-      const response = await client.get<T>(endpoint, {
+  async get<S extends z.ZodType>(
+    endpoint: string,
+    schema: S,
+    params?: QueryParams,
+    signal?: AbortSignal,
+  ): Promise<z.output<S>> {
+    const dataResult = await this.#request(async (client) => {
+      const response = await client.get<unknown>(endpoint, {
         params,
         signal: signal ?? AbortSignal.timeout(15_000),
       });
       return response.data;
     });
+    return this.#validate(dataResult, schema);
   }
 
-  async post<T = unknown>(endpoint = '', data?: unknown, signal?: AbortSignal): Promise<T> {
-    return this.#request(async (client) => {
-      const response = await client.post<T>(endpoint, data, {
+  async post<S extends z.ZodType>(
+    endpoint: string,
+    schema: S,
+    data?: unknown,
+    signal?: AbortSignal,
+  ): Promise<z.output<S>> {
+    const dataResult = await this.#request(async (client) => {
+      const response = await client.post<unknown>(endpoint, data, {
         signal: signal ?? AbortSignal.timeout(15_000),
       });
       return response.data;
     });
+    return this.#validate(dataResult, schema);
   }
 
-  async uploadFile<T = unknown>(
+  async uploadFile<S extends z.ZodType>(
     endpoint: string,
+    schema: S,
     formData: FormData,
     signal?: AbortSignal,
-  ): Promise<T> {
+  ): Promise<z.output<S>> {
     // Axios supplies multipart headers, including the boundary, for FormData.
-    return this.post<T>(endpoint, formData, signal);
+    return this.post(endpoint, schema, formData, signal);
+  }
+
+  #validate<S extends z.ZodType>(data: unknown, schema: S): z.output<S> {
+    const result = schema.safeParse(data);
+    if (!result.success) throw new APIResponseValidationError(result.error.issues);
+    return result.data;
   }
 
   #createClient(): AxiosInstance {

@@ -3,6 +3,8 @@ import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 import {
+  athleteSettingsSchema,
+  type AthleteSettings,
   activityDetailsSchema,
   activityIdSchema,
   activitySchema,
@@ -37,6 +39,15 @@ export class IntervalsClient {
     this.#api = new APIClient(this.#config.baseURL, basicAuth);
   }
 
+  /** Fetch current settings, exposing only training context fields. */
+  async getAthleteSettings(): Promise<AthleteSettings> {
+    const data = await this.#api.get(`/athlete/${this.#config.athleteId}`, athleteSettingsSchema);
+    if (this.#config.athleteId !== '0' && data.id !== this.#config.athleteId) {
+      throw new Error('Intervals API returned settings for a different athlete.');
+    }
+    return data;
+  }
+
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
   async getRecentActivities(days = 7): Promise<ActivitySummary[]> {
     if (!Number.isInteger(days) || days < 1 || days > 365) {
@@ -45,16 +56,16 @@ export class IntervalsClient {
     const newest = new Date();
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - days + 1);
-    const data = await this.#api.get(`/athlete/${this.#config.athleteId}/activities`, {
-      oldest: oldest.toISOString().slice(0, 10),
-      newest: newest.toISOString().slice(0, 10),
-    });
+    const data = await this.#api.get(
+      `/athlete/${this.#config.athleteId}/activities`,
+      z.array(activitySchema),
+      {
+        oldest: oldest.toISOString().slice(0, 10),
+        newest: newest.toISOString().slice(0, 10),
+      },
+    );
 
-    const result = z.array(activitySchema).safeParse(data);
-    if (!result.success) {
-      throw new Error('Intervals API returned an invalid activities response.');
-    }
-    return result.data;
+    return data;
   }
 
   /** Fetch session metrics and detected work/recovery intervals for one activity. */
@@ -62,17 +73,17 @@ export class IntervalsClient {
     const id = activityIdSchema.safeParse(activityId);
     if (!id.success) throw new Error('Invalid activity ID.');
 
-    const data = await this.#api.get(`/activity/${encodeURIComponent(id.data)}`, {
-      intervals: true,
-    });
-    const result = activityDetailsSchema.safeParse(data);
-    if (!result.success) {
-      throw new Error('Intervals API returned invalid or unavailable activity details.');
-    }
-    if (result.data.id !== id.data) {
+    const data = await this.#api.get(
+      `/activity/${encodeURIComponent(id.data)}`,
+      activityDetailsSchema,
+      {
+        intervals: true,
+      },
+    );
+    if (data.id !== id.data) {
       throw new Error('Intervals API returned details for a different activity.');
     }
-    return result.data;
+    return data;
   }
 
   /** Retrieve selected scalar measurements aligned with elapsed time in seconds. */
@@ -86,15 +97,17 @@ export class IntervalsClient {
     if (!selection.success) throw new Error('Invalid activity stream selection.');
     const requestedTypes = [...new Set(selection.data)];
 
-    const data = await this.#api.get(`/activity/${encodeURIComponent(id.data)}/streams.json`, {
-      types: ['time', ...requestedTypes].join(','),
-      includeDefaults: false,
-    });
-    const result = activityStreamsResponseSchema.safeParse(data);
-    if (!result.success) throw new Error('Intervals API returned invalid activity streams.');
+    const data = await this.#api.get(
+      `/activity/${encodeURIComponent(id.data)}/streams.json`,
+      activityStreamsResponseSchema,
+      {
+        types: ['time', ...requestedTypes].join(','),
+        includeDefaults: false,
+      },
+    );
 
-    const byType = new Map(result.data.map((stream) => [stream.type, stream.data]));
-    if (byType.size !== result.data.length) {
+    const byType = new Map(data.map((stream) => [stream.type, stream.data]));
+    if (byType.size !== data.length) {
       throw new Error('Intervals API returned duplicate activity streams.');
     }
     const time = z.array(z.number().nonnegative()).min(1).safeParse(byType.get('time'));

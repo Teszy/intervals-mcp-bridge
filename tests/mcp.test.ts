@@ -93,6 +93,12 @@ describe('MCP recent activities tool', () => {
             outputSchema: { properties: { summaries: { type: 'array' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
           },
+          {
+            name: 'get_athlete_settings',
+            inputSchema: { type: 'object' },
+            outputSchema: { properties: { settings: { type: 'object' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
         ],
       },
     });
@@ -519,5 +525,53 @@ describe('MCP activity stream pages', () => {
       }),
     ).toHaveProperty('result.isError', true);
     expect(adapter).not.toHaveBeenCalled();
+  });
+});
+
+describe('MCP athlete settings tool', () => {
+  it('advertises a read-only settings tool', async () => {
+    const adapter = mockHttp();
+    const request = await connect();
+    const response = await request('tools/list');
+    if (!('result' in response)) throw new Error('Missing tool list');
+    expect((response.result as { tools: unknown[] }).tools).toContainEqual(
+      expect.objectContaining({
+        name: 'get_athlete_settings',
+        annotations: expect.objectContaining({ readOnlyHint: true }),
+      }),
+    );
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it('returns curated training settings with the JSON text fallback', async () => {
+    const settings = {
+      id: 'i12345',
+      sportSettings: [
+        { id: 1, types: ['Ride'], ftp: 250, power_zones: [55, 75, 90, 105, 120, 150, 999] },
+      ],
+    };
+    mockHttp({ ...settings, icu_api_key: 'secret-account-key' });
+    const request = await connect();
+    const response = await request('tools/call', { name: 'get_athlete_settings', arguments: {} });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: { settings },
+        content: [{ type: 'text', text: JSON.stringify({ settings }) }],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-account-key');
+  });
+  it.each([401, 403, 500])('sanitizes upstream HTTP %s', async (status) => {
+    mockHttp({ private: 'secret upstream body' }, status);
+    const request = await connect();
+    const response = await request('tools/call', { name: 'get_athlete_settings', arguments: {} });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('secret');
+  });
+  it('sanitizes malformed settings', async () => {
+    mockHttp({ icu_api_key: 'secret-account-key' });
+    const request = await connect();
+    const response = await request('tools/call', { name: 'get_athlete_settings', arguments: {} });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('secret-account-key');
   });
 });

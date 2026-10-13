@@ -39,6 +39,14 @@ Activity CLI ──────────────────────�
   Wellness records are ordered oldest first and duplicate/out-of-range dates are
   rejected. Missing dates and null values are preserved; no fitness model, period
   totals or missing observations are generated.
+- `preview_planned_workout` and `publish_planned_workout` share a per-server
+  `WorkoutDrafts` registry in `src/workouts/drafts.ts`. Preview validates an explicit
+  plan and generates FIT bytes in `src/workouts/fit.ts` using the Garmin SDK.
+  Publication sends only those stored bytes to the calendar events API. Input
+  schemas and event response schemas remain in `src/intervals/schemas.ts`.
+  Drafts track ready/publishing/published/unknown states, so repeat successful calls
+  do not write again and failed writes cannot be retried blindly. The registry
+  is in memory, not persistent; host consent is represented by approved=true.
 - `src/intervals/config.ts` validates environment configuration with Zod.
   Entry-point commands load `.env`; reusable modules do not load files.
 - `src/intervals/client.ts` owns endpoint paths, UTC date bounds, and activity

@@ -1,3 +1,5 @@
+import { registerListActivityWorkloadTool } from './tools/list-activity-workload.js';
+import { registerListWellnessTool } from './tools/list-wellness.js';
 import { registerGetAthleteSettingsTool } from './tools/get-athlete-settings.js';
 import { McpServer } from '@modelcontextprotocol/server';
 import packageInfo from '../../package.json' with { type: 'json' };
@@ -19,5 +21,7 @@ export function createServer(config: IntervalsConfig): McpServer {
   registerGetActivityStreamPageTool(server, client);
   registerGetActivityStreamStatisticsTool(server, client);
   registerGetAthleteSettingsTool(server, client);
+  registerListActivityWorkloadTool(server, client);
+  registerListWellnessTool(server, client);
   return server;
 }

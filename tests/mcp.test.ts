@@ -99,6 +99,18 @@ describe('MCP recent activities tool', () => {
             outputSchema: { properties: { settings: { type: 'object' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
           },
+          {
+            name: 'list_activity_workload',
+            inputSchema: { required: ['oldest', 'newest'] },
+            outputSchema: { properties: { activities: { type: 'array' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: 'list_wellness',
+            inputSchema: { required: ['oldest', 'newest'] },
+            outputSchema: { properties: { wellness: { type: 'array' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
         ],
       },
     });
@@ -573,5 +585,79 @@ describe('MCP athlete settings tool', () => {
     const response = await request('tools/call', { name: 'get_athlete_settings', arguments: {} });
     expect(response).toHaveProperty('result.isError', true);
     expect(JSON.stringify(response)).not.toContain('secret-account-key');
+  });
+});
+
+describe.each([
+  {
+    name: 'list_activity_workload',
+    field: 'activities',
+    records: [{ id: 'i42', icu_training_load: 50, power_load: null }],
+  },
+  {
+    name: 'list_wellness',
+    field: 'wellness',
+    records: [{ id: '2026-10-13', ctl: 40, atl: 55, fatigue: 0, hrv: null }],
+  },
+])('MCP $name', ({ name, field, records }) => {
+  const dates = { oldest: '2026-10-01', newest: '2026-10-13' };
+  it('returns structured records and equivalent text without unselected fields', async () => {
+    mockHttp(
+      records.map((record) => ({
+        ...record,
+        comments: 'private comments',
+        customFields: { secret: 'private field' },
+      })),
+    );
+    const request = await connect();
+    const output = { ...dates, [field]: records };
+    const response = await request('tools/call', { name, arguments: dates });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: output,
+        content: [{ type: 'text' }],
+      },
+    });
+    if (!('result' in response)) throw new Error('Missing tool result');
+    const result = response.result as { content: { text: string }[] };
+    expect(JSON.parse(result.content[0]!.text)).toEqual(output);
+    expect(JSON.stringify(response)).not.toContain('private');
+  });
+  it('returns empty records without inventing data', async () => {
+    mockHttp([]);
+    const request = await connect();
+    expect(await request('tools/call', { name, arguments: dates })).toHaveProperty(
+      `result.structuredContent.${field}`,
+      [],
+    );
+  });
+  it.each([
+    {},
+    { oldest: '2026-10-01' },
+    { oldest: '2026-02-29', newest: '2026-03-01' },
+    { oldest: '2026-10-13', newest: '2026-10-01' },
+    { oldest: '2026-01-01', newest: '2026-04-01' },
+  ])('rejects invalid dates before fetching %j', async (args) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(await request('tools/call', { name, arguments: args })).toHaveProperty(
+      'result.isError',
+      true,
+    );
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it.each([401, 403, 500])('sanitizes upstream HTTP %s', async (status) => {
+    mockHttp({ private: 'secret upstream body' }, status);
+    const request = await connect();
+    const response = await request('tools/call', { name, arguments: dates });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('secret');
+  });
+  it('sanitizes malformed upstream records', async () => {
+    mockHttp([{ private: 'secret response' }]);
+    const request = await connect();
+    const response = await request('tools/call', { name, arguments: dates });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('secret');
   });
 });

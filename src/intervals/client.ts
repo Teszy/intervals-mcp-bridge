@@ -3,6 +3,12 @@ import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 import {
+  activityWorkloadSchema,
+  wellnessSchema,
+  trainingDateRangeSchema,
+  type TrainingDateRange,
+  type ActivityWorkload,
+  type Wellness,
   athleteSettingsSchema,
   type AthleteSettings,
   activityDetailsSchema,
@@ -37,6 +43,34 @@ export class IntervalsClient {
       password: this.#config.apiKey,
     };
     this.#api = new APIClient(this.#config.baseURL, basicAuth);
+  }
+
+  /** Fetch session workload in an inclusive athlete-local date range. */
+  async getActivityWorkload(range: TrainingDateRange): Promise<ActivityWorkload[]> {
+    const dates = trainingDateRangeSchema.parse(range);
+    return this.#api.get(
+      `/athlete/${this.#config.athleteId}/activities`,
+      z.array(activityWorkloadSchema),
+      dates,
+    );
+  }
+
+  /** Fetch recorded daily wellness and upstream fitness values, without filling gaps. */
+  async getWellness(range: TrainingDateRange): Promise<Wellness[]> {
+    const dates = trainingDateRangeSchema.parse(range);
+    const records = await this.#api.get(
+      `/athlete/${this.#config.athleteId}/wellness`,
+      z.array(wellnessSchema),
+      dates,
+    );
+    const seen = new Set<string>();
+    for (const record of records) {
+      if (record.id < dates.oldest || record.id > dates.newest || seen.has(record.id)) {
+        throw new Error('Intervals API returned duplicate or out-of-range wellness dates.');
+      }
+      seen.add(record.id);
+    }
+    return records.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   /** Fetch current settings, exposing only training context fields. */

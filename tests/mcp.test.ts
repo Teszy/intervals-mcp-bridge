@@ -54,24 +54,43 @@ describe('MCP recent activities tool', () => {
       result: {
         tools: [
           {
-            name: 'get_recent_activities',
+            name: 'list_recent_activities',
             inputSchema: { properties: { days: { minimum: 1, maximum: 365, default: 7 } } },
             outputSchema: { properties: { activities: { type: 'array' } } },
             annotations: { readOnlyHint: true },
           },
           {
-            name: 'get_activity',
+            name: 'get_activity_details',
             inputSchema: { required: ['activityId'] },
             outputSchema: { properties: { activity: { type: 'object' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
           },
           {
-            name: 'get_activity_streams',
+            name: 'get_activity_stream_overview',
             inputSchema: {
               required: ['activityId'],
               properties: { maxPoints: { minimum: 2, maximum: 500, default: 200 } },
             },
             outputSchema: { properties: { time: { type: 'array' }, sampled: { type: 'boolean' } } },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: 'get_activity_stream_page',
+            inputSchema: {
+              properties: {
+                pageSize: { minimum: 1, maximum: 500, default: 200 },
+                offset: { default: 0 },
+              },
+            },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: 'get_activity_stream_statistics',
+            inputSchema: {
+              required: ['activityId'],
+              properties: { maxGapSeconds: { default: 30 } },
+            },
+            outputSchema: { properties: { summaries: { type: 'array' } } },
             annotations: { readOnlyHint: true, destructiveHint: false },
           },
         ],
@@ -86,7 +105,7 @@ describe('MCP recent activities tool', () => {
     const request = await connect();
     expect(
       await request('tools/call', {
-        name: 'get_recent_activities',
+        name: 'list_recent_activities',
         ...(days === undefined ? {} : { arguments: { days } }),
       }),
     ).toMatchObject({
@@ -103,7 +122,7 @@ describe('MCP recent activities tool', () => {
   it('returns empty activities as a successful result', async () => {
     mockHttp([]);
     const request = await connect();
-    const response = await request('tools/call', { name: 'get_recent_activities', arguments: {} });
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
     expect(response).toHaveProperty('result.structuredContent.activities', []);
     expect(response).not.toHaveProperty('result.isError', true);
   });
@@ -112,7 +131,7 @@ describe('MCP recent activities tool', () => {
     const adapter = mockHttp();
     const request = await connect();
     const response = await request('tools/call', {
-      name: 'get_recent_activities',
+      name: 'list_recent_activities',
       arguments: { days },
     });
     expect(response).toHaveProperty('result.isError', true);
@@ -122,7 +141,7 @@ describe('MCP recent activities tool', () => {
   it.each([401, 403, 500])('reports HTTP %s as a sanitized tool error', async (status) => {
     mockHttp('test-secret response body', status);
     const request = await connect();
-    const response = await request('tools/call', { name: 'get_recent_activities', arguments: {} });
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
     expect(response).toMatchObject({
       result: {
         isError: true,
@@ -136,7 +155,7 @@ describe('MCP recent activities tool', () => {
     mockHttp([{ name: 'private activity without id' }]);
     const request = await connect();
     expect(
-      await request('tools/call', { name: 'get_recent_activities', arguments: {} }),
+      await request('tools/call', { name: 'list_recent_activities', arguments: {} }),
     ).toMatchObject({
       result: {
         isError: true,
@@ -146,12 +165,99 @@ describe('MCP recent activities tool', () => {
   });
 });
 
+describe('MCP full-resolution stream statistics', () => {
+  it('uses all samples including a peak that the sampled stream tool could miss', async () => {
+    mockHttp([
+      { type: 'time', data: [0, 5, 10, 15] },
+      { type: 'watts', data: [100, 1000, 100, 0] },
+    ]);
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'get_activity_stream_statistics',
+      arguments: {
+        activityId: 'i42',
+        types: ['watts'],
+        zones: [{ type: 'watts', boundaries: [200] }],
+      },
+    });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: {
+          activityId: 'i42',
+          totalPoints: 4,
+          durationSeconds: 15,
+          summaries: [
+            {
+              type: 'watts',
+              weightedMean: 400,
+              max: 1000,
+              validSeconds: 15,
+              coveragePercent: 100,
+              zones: { boundaries: [200], seconds: [10, 5] },
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it('applies default selections and accepts a focused time window', async () => {
+    const adapter = mockHttp(activityStreams);
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_stream_statistics',
+        arguments: { activityId: 'i42', startTime: 5, endTime: 10 },
+      }),
+    ).toHaveProperty('result.structuredContent.durationSeconds', 5);
+    expect(adapter.mock.calls[0]![0].params.types).toBe(
+      'time,heartrate,velocity_smooth,watts,cadence',
+    );
+  });
+
+  it.each([
+    { startTime: 20, endTime: 10 },
+    { maxGapSeconds: 0 },
+    { maxGapSeconds: 301 },
+    { zones: [{ type: 'heartrate', boundaries: [150, 120] }] },
+    { zones: [{ type: 'heartrate', boundaries: [120, 120] }] },
+    { zones: [{ type: 'altitude', boundaries: [100] }] },
+    {
+      zones: [
+        { type: 'heartrate', boundaries: [120] },
+        { type: 'heartrate', boundaries: [150] },
+      ],
+    },
+  ])('rejects invalid boundaries or options before HTTP %j', async (options) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_stream_statistics',
+        arguments: { activityId: 'i42', ...options },
+      }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes unavailable upstream data', async () => {
+    mockHttp({ private: 'secret upstream body' });
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'get_activity_stream_statistics',
+      arguments: { activityId: 'i42' },
+    });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).not.toContain('secret upstream body');
+  });
+});
+
 describe('MCP activity streams tool', () => {
   it('returns aligned measurements, units and missing-stream metadata without sampling short data', async () => {
     mockHttp(activityStreams);
     const request = await connect();
     const response = await request('tools/call', {
-      name: 'get_activity_streams',
+      name: 'get_activity_stream_overview',
       arguments: { activityId: 'i42' },
     });
     expect(response).toMatchObject({
@@ -183,7 +289,7 @@ describe('MCP activity streams tool', () => {
     const request = await connect();
     expect(
       await request('tools/call', {
-        name: 'get_activity_streams',
+        name: 'get_activity_stream_overview',
         arguments: { activityId: 'i42', types: ['heartrate', 'altitude'], maxPoints: 3 },
       }),
     ).toMatchObject({
@@ -208,7 +314,7 @@ describe('MCP activity streams tool', () => {
     const request = await connect();
     expect(
       await request('tools/call', {
-        name: 'get_activity_streams',
+        name: 'get_activity_stream_overview',
         arguments: { activityId: 'i42', types: ['heartrate'], startTime, endTime },
       }),
     ).toHaveProperty('result.structuredContent.time', expectedTime);
@@ -227,7 +333,7 @@ describe('MCP activity streams tool', () => {
     const request = await connect();
     expect(
       await request('tools/call', {
-        name: 'get_activity_streams',
+        name: 'get_activity_stream_overview',
         arguments: { activityId: 'i42', ...args },
       }),
     ).toHaveProperty('result.isError', true);
@@ -238,7 +344,7 @@ describe('MCP activity streams tool', () => {
     mockHttp({ _note: 'private response details' });
     const request = await connect();
     const response = await request('tools/call', {
-      name: 'get_activity_streams',
+      name: 'get_activity_stream_overview',
       arguments: { activityId: 'i42' },
     });
     expect(response).toHaveProperty('result.isError', true);
@@ -251,7 +357,10 @@ describe('MCP activity details tool', () => {
     mockHttp(activityDetails);
     const request = await connect();
     expect(
-      await request('tools/call', { name: 'get_activity', arguments: { activityId: 'i42' } }),
+      await request('tools/call', {
+        name: 'get_activity_details',
+        arguments: { activityId: 'i42' },
+      }),
     ).toMatchObject({
       result: {
         structuredContent: { activity: activityDetails },
@@ -265,10 +374,9 @@ describe('MCP activity details tool', () => {
     async (args) => {
       const adapter = mockHttp();
       const request = await connect();
-      expect(await request('tools/call', { name: 'get_activity', arguments: args })).toHaveProperty(
-        'result.isError',
-        true,
-      );
+      expect(
+        await request('tools/call', { name: 'get_activity_details', arguments: args }),
+      ).toHaveProperty('result.isError', true);
       expect(adapter).not.toHaveBeenCalled();
     },
   );
@@ -277,7 +385,10 @@ describe('MCP activity details tool', () => {
     mockHttp('private activity contents', 404);
     const request = await connect();
     expect(
-      await request('tools/call', { name: 'get_activity', arguments: { activityId: 'i42' } }),
+      await request('tools/call', {
+        name: 'get_activity_details',
+        arguments: { activityId: 'i42' },
+      }),
     ).toMatchObject({
       result: {
         isError: true,
@@ -290,7 +401,7 @@ describe('MCP activity details tool', () => {
     mockHttp({ id: 'i42', source: 'STRAVA', _note: 'private restriction details' });
     const request = await connect();
     const response = await request('tools/call', {
-      name: 'get_activity',
+      name: 'get_activity_details',
       arguments: { activityId: 'i42' },
     });
     expect(response).toMatchObject({
@@ -305,5 +416,108 @@ describe('MCP activity details tool', () => {
       },
     });
     expect(JSON.stringify(response)).not.toContain('private restriction details');
+  });
+});
+
+describe('MCP activity stream pages', () => {
+  it('traverses a window without omissions and preserves aligned null values', async () => {
+    mockHttp(activityStreams);
+    const request = await connect();
+    const times: number[] = [];
+    const values: (number | null)[] = [];
+    let offset: number | null = 0;
+    do {
+      const response = await request('tools/call', {
+        name: 'get_activity_stream_page',
+        arguments: {
+          activityId: 'i42',
+          types: ['heartrate'],
+          startTime: 5,
+          endTime: 30,
+          pageSize: 3,
+          offset,
+        },
+      });
+      expect(response).not.toHaveProperty('result.isError', true);
+      const page = (
+        response as unknown as {
+          result: {
+            structuredContent: {
+              time: number[];
+              streams: { data: (number | null)[] }[];
+              nextOffset: number | null;
+              hasMore: boolean;
+              windowPoints: number;
+            };
+          };
+        }
+      ).result.structuredContent;
+      expect(page.windowPoints).toBe(4);
+      expect(page.hasMore).toBe(page.nextOffset !== null);
+      times.push(...page.time);
+      values.push(...page.streams[0]!.data);
+      offset = page.nextOffset;
+    } while (offset !== null);
+    expect(times).toEqual([5, 10, 16, 30]);
+    expect(values).toEqual([130, null, 150, 155]);
+  });
+
+  it.each([{ offset: 6 }, { offset: 20 }, { startTime: 61 }])(
+    'terminates empty pages %j',
+    async (args) => {
+      mockHttp(activityStreams);
+      const request = await connect();
+      expect(
+        await request('tools/call', {
+          name: 'get_activity_stream_page',
+          arguments: { activityId: 'i42', ...args },
+        }),
+      ).toMatchObject({
+        result: {
+          structuredContent: { time: [], returnedPoints: 0, nextOffset: null, hasMore: false },
+        },
+      });
+    },
+  );
+
+  it('defaults to 200 consecutive points and supports the 500-point maximum', async () => {
+    mockHttp([{ type: 'time', data: Array.from({ length: 501 }, (_, i) => i) }]);
+    const request = await connect();
+    for (const pageSize of [undefined, 500]) {
+      const count = pageSize ?? 200;
+      expect(
+        await request('tools/call', {
+          name: 'get_activity_stream_page',
+          arguments: { activityId: 'i42', types: ['watts'], pageSize },
+        }),
+      ).toMatchObject({
+        result: {
+          structuredContent: {
+            time: Array.from({ length: count }, (_, i) => i),
+            returnedPoints: count,
+            nextOffset: count,
+            missingStreams: ['watts'],
+          },
+        },
+      });
+    }
+  });
+
+  it.each([
+    { offset: -1 },
+    { offset: 0.5 },
+    { pageSize: 0 },
+    { pageSize: 501 },
+    { startTime: 10, endTime: 5 },
+  ])('rejects invalid pagination %j before fetching', async (args) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', {
+        name: 'get_activity_stream_page',
+        arguments: { activityId: 'i42', ...args },
+      }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
   });
 });

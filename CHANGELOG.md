@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.8.0...v0.9.0) (2026-10-13)
+
+
+### Features
+
+* add planned workout previews and FIT calendar publication ([#21](https://github.com/Teszy/intervals-mcp-bridge/issues/21)) ([58d5d1d](https://github.com/Teszy/intervals-mcp-bridge/commit/58d5d1d3052044bbd309ecb0bdef7cb2bf6121ca))
+
 ## [0.8.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.7.0...v0.8.0) (2026-10-13)
 
 

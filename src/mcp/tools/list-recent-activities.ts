@@ -7,13 +7,13 @@ import { toolResult } from '../result.js';
 const inputSchema = z.object({ days: z.number().int().min(1).max(365).default(7) });
 const outputSchema = z.object({ activities: z.array(activitySchema) });
 
-export function registerGetRecentActivitiesTool(server: McpServer, client: IntervalsClient): void {
+export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsClient): void {
   server.registerTool(
-    'get_recent_activities',
+    'list_recent_activities',
     {
       title: 'Recent activities',
       description:
-        'Fetch recent Intervals.icu activities for the configured athlete. Includes today; date bounds use UTC. Distance is in meters and moving_time in seconds.',
+        'List recent Intervals.icu activities for the configured athlete to find activity IDs for the details and stream tools. Includes today; date bounds use UTC. Distance is in meters and moving_time in seconds.',
       inputSchema,
       outputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },

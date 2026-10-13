@@ -7,7 +7,7 @@ import {
   activityStreamTypeSchema,
   activityStreamTypesSchema,
   defaultActivityStreamTypes,
-  type ActivityStreamType,
+  activityStreamUnits,
 } from '../../intervals/schemas.js';
 import { toolResult } from '../result.js';
 
@@ -15,7 +15,14 @@ const inputSchema = z
   .object({
     activityId: activityIdSchema,
     types: activityStreamTypesSchema.default(defaultActivityStreamTypes),
-    maxPoints: z.number().int().min(2).max(500).default(200),
+    pageSize: z.number().int().min(1).max(500).default(200),
+    offset: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(Number.MAX_SAFE_INTEGER)
+      .default(0)
+      .describe('Point offset within the filtered time window'),
     startTime: z.number().nonnegative().optional().describe('Inclusive elapsed seconds'),
     endTime: z.number().nonnegative().optional().describe('Inclusive elapsed seconds'),
   })
@@ -32,55 +39,48 @@ const outputSchema = z.object({
   totalPoints: z.number().int().nonnegative(),
   windowPoints: z.number().int().nonnegative(),
   returnedPoints: z.number().int().nonnegative(),
-  sampled: z.boolean(),
+  offset: z.number().int().nonnegative(),
+  nextOffset: z.number().int().nonnegative().nullable(),
+  hasMore: z.boolean(),
 });
 
-const units: Record<ActivityStreamType, string> = {
-  heartrate: 'beats per minute',
-  velocity_smooth: 'meters per second',
-  watts: 'watts (Intervals corrected power)',
-  cadence: 'recorded cadence; units depend on sport and source',
-  distance: 'meters (cumulative)',
-  altitude: 'meters',
-};
-
-export function registerGetActivityStreamsTool(server: McpServer, client: IntervalsClient): void {
+export function registerGetActivityStreamPageTool(
+  server: McpServer,
+  client: IntervalsClient,
+): void {
   server.registerTool(
-    'get_activity_streams',
+    'get_activity_stream_page',
     {
-      title: 'Activity streams',
+      title: 'Activity stream page',
       description:
-        'Fetch selected measurements over elapsed time for an activity ID from get_recent_activities. Time and stream arrays share indices; null values are missing, not zero. Defaults to heart rate, speed, power and cadence, capped at 200 points. If sampled=true, points are evenly selected by sample index, preserving the window endpoints; peaks and short efforts may be missed. Use startTime/endTime to inspect an interval in greater detail. Do not infer exact averages, peaks or time in zones from sampled data. Speeds are meters/second; running pace in seconds/km is 1000/speed when speed is positive.',
+        'Retrieve consecutive original measurements without sampling for detailed inspection or lossless traversal. Returns 200 points per page by default (maximum 500). Optional startTime/endTime bounds are inclusive elapsed seconds. Start at offset=0; continue with nextOffset until it is null, keeping activityId, types and time bounds unchanged. Offsets count points in the filtered window, not seconds. Time and stream arrays share indices; null means missing, not zero. Each call fetches current upstream data, so activity changes during traversal can shift pages. Use get_activity_stream_overview for a compact sampled overview and get_activity_stream_statistics for statistics from full-resolution data. Speeds are meters/second.',
       inputSchema,
       outputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId, types, maxPoints, startTime, endTime }) =>
+    ({ activityId, types, pageSize, offset, startTime, endTime }) =>
       toolResult(async () => {
         const data = await client.getActivityStreams(activityId, types);
         const indices = data.time.flatMap((time, index) =>
           time >= (startTime ?? 0) && (endTime === undefined || time <= endTime) ? [index] : [],
         );
-        const sampled = indices.length > maxPoints;
-        const selected = sampled
-          ? Array.from(
-              { length: maxPoints },
-              (_, i) => indices[Math.floor((i * (indices.length - 1)) / (maxPoints - 1))]!,
-            )
-          : indices;
+        const selected = indices.slice(offset, offset + pageSize);
+        const hasMore = offset + selected.length < indices.length;
         return {
           activityId,
           time: selected.map((index) => data.time[index]!),
           streams: data.streams.map((stream) => ({
             type: stream.type,
-            unit: units[stream.type],
+            unit: activityStreamUnits[stream.type],
             data: selected.map((index) => stream.data[index]!),
           })),
           missingStreams: data.missingStreams,
           totalPoints: data.time.length,
           windowPoints: indices.length,
           returnedPoints: selected.length,
-          sampled,
+          offset,
+          nextOffset: hasMore ? offset + selected.length : null,
+          hasMore,
         };
       }, 'Unable to retrieve valid activity streams. The data may be unavailable through the Intervals API.'),
   );

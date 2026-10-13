@@ -133,3 +133,25 @@ The LLM chooses the tools needed for the question. A typical analysis starts wit
 listing activities, then fetches details and stream statistics; an overview helps
 inspect trends, while pagination is useful when every original reading is needed.
 The former `get_recent_activities` name is now `list_recent_activities`.
+
+## Athlete settings and training zones
+
+Use `{"name":"get_athlete_settings","arguments":{}}` to retrieve current training
+settings for the configured athlete, including sport profiles, outdoor/indoor FTP,
+threshold/max heart rate, threshold speed and original zone limits and names.
+For “What are my running zones?”, the LLM selects the profile whose `types` includes
+`Run`; profiles can cover several activity types. Missing or null values remain
+unavailable. The response includes only selected training fields, excluding account
+credentials and unrelated profile data.
+
+`hr_zones` contains upper limits in bpm. `power_zones` contains percentages of FTP;
+`pace_zones` contains percentages of threshold speed. Each includes the final zone.
+`threshold_pace` is in meters/second, regardless of the `pace_units` display setting.
+For example, 3.3333 m/s is approximately 5:00 min/km. These original upper limits
+must not be passed directly as the lower-inclusive absolute boundaries accepted by
+`get_activity_stream_statistics`. Statistics still require explicit boundaries.
+Settings are current; they do not describe historical zones for an older activity.
+Custom zone definitions are not included in this first implementation.
+
+Contracts are based on the [official OpenAPI schema](https://intervals.icu/api/v1/docs)
+and the [Intervals data model](https://forum.intervals.icu/t/server-side-data-model-for-scripts/25781).

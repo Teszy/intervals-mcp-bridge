@@ -27,14 +27,23 @@ Activity CLI ──────────────────────�
   and nullable nextOffset without sampling. Each call fetches current upstream data.
   `get_activity_stream_statistics` fetches full-resolution streams and delegates
   calculations to `src/intervals/activity-stream-statistics.ts`; it does not use sampled output.
+- `get_athlete_settings` fetches the configured athlete with sport profiles through
+  `IntervalsClient.getAthleteSettings`. `src/intervals/schemas.ts` validates
+  a curated set of training fields and strips unrelated fields, including account
+  credentials. Zones retain upstream units and upper-limit semantics; no automatic
+  conversion to statistics boundaries is performed. Empty profile lists are valid.
 - `src/intervals/config.ts` validates environment configuration with Zod.
   Entry-point commands load `.env`; reusable modules do not load files.
 - `src/intervals/client.ts` owns endpoint paths, UTC date bounds, and activity
-  response validation. `src/intervals/schemas.ts` defines validated activity
+  response schema selection and domain validation. `src/intervals/schemas.ts` defines validated activity
   summaries, session metrics, and intervals. MCP tool output schemas reuse these
   data schemas, keeping the Intervals layer independent of MCP contracts.
-- `src/api/` handles HTTP requests, authentication headers, timeouts, and sanitized
-  transport errors. Intervals uses Basic auth with the fixed username `API_KEY`.
+- `src/api/` handles HTTP requests, authentication headers, timeouts, sanitized
+  transport errors, and response schema validation. GET, POST and file upload require
+  a Zod response schema and infer their output types from it. Schema failures throw
+  `APIResponseValidationError`, distinct from `HTTPError`, with issue codes and field
+  paths only; raw responses and Zod messages are not retained. Intervals-specific
+  identity, timestamp ordering and stream alignment checks stay in `IntervalsClient`. Intervals uses Basic auth with the fixed username `API_KEY`.
 - `src/cli.ts` provides human-readable activity output independently of MCP.
 
 ## Errors and boundaries
@@ -83,7 +92,8 @@ value originating before the window can contribute to its mean without being an
 observed point inside it. Zero-duration windows have no mean or coverage percentage.
 Optional zone boundaries use stream units and place exact boundary values in the
 higher zone. Zones count valid duration only and require explicit boundaries;
-athlete settings are not fetched or inferred. These recording-based statistics
+the statistics tool does not automatically fetch athlete settings. The separate
+`get_athlete_settings` tool supplies current personal context, not historical zones. These recording-based statistics
 may differ from Intervals' moving-time metrics.
 
 Stdio has no network listener or separate user-authentication layer. The MCP host

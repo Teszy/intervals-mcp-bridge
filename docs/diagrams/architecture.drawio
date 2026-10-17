@@ -1,0 +1,97 @@
+<mxfile host="Electron">
+  <diagram id="overview" name="Architecture overview">
+    <mxGraphModel dx="1082" dy="805" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="730" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="tex=text;html=0;fontSize=24;align=left;fontFamily=Arial;fontColor=#172338;fontStyle=1;spacing=0;strokeColor=none;" value="Architecture overview — current local implementation" vertex="1">
+          <mxGeometry height="40" width="1040" x="30" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="tex=text;html=0;fontSize=14;align=left;fontFamily=Arial;fontColor=#172338;fontStyle=0;spacing=0;strokeColor=none;gradientColor=none;" value="Blue: our application · Purple: third-party libraries · Green: external hosts/services" vertex="1">
+          <mxGeometry height="30" width="1040" x="30" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="process" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fafbfc;strokeColor=#aeb8c4;fontSize=16;verticalAlign=top;spacingTop=15;dashed=1;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=4;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="530" width="450" x="330" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="process-label-0" parent="process" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="MCP bridge — one Node.js process" vertex="1">
+          <mxGeometry height="24" width="450" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="host" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#e5f4ef;strokeColor=#40836e;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=25;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="80" width="240" x="30" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="host-label-0" parent="host" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="MCP host" vertex="1">
+          <mxGeometry height="24" width="240" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="host-label-1" parent="host" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="VS Code + Copilot" vertex="1">
+          <mxGeometry height="24" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="model" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#e5f4ef;strokeColor=#40836e;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=25;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="80" width="240" x="30" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="model-label-0" parent="model" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="LLM / model provider" vertex="1">
+          <mxGeometry height="24" width="240" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="model-label-1" parent="model" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Managed by the host" vertex="1">
+          <mxGeometry height="24" width="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sdk" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f2edff;strokeColor=#78639d;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=25;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="80" width="290" x="410" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="sdk-label-0" parent="sdk" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="MCP SDK" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="sdk-label-1" parent="sdk" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Local stdio transport and tool dispatch" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="app" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#eaf2ff;strokeColor=#4169a1;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=18;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="110" width="290" x="410" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="app-label-0" parent="app" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Bridge application" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="19" as="geometry" />
+        </mxCell>
+        <mxCell id="app-label-1" parent="app" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Curated data and stream analysis" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="app-label-2" parent="app" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Reviewed workout publication" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="67" as="geometry" />
+        </mxCell>
+        <mxCell id="libs" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f2edff;strokeColor=#78639d;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=25;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="80" width="290" x="410" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="libs-label-0" parent="libs" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Supporting libraries" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="libs-label-1" parent="libs" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Zod · Axios · Garmin FIT SDK" vertex="1">
+          <mxGeometry height="24" width="390" x="-50" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="intervals" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#e5f4ef;strokeColor=#40836e;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=18;absoluteArcSize=0;" value="" vertex="1">
+          <mxGeometry height="110" width="220" x="850" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="intervals-label-0" parent="intervals" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Intervals.icu API" vertex="1">
+          <mxGeometry height="24" width="220" y="19" as="geometry" />
+        </mxCell>
+        <mxCell id="intervals-label-1" parent="intervals" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Athlete data" vertex="1">
+          <mxGeometry height="24" width="220" y="43" as="geometry" />
+        </mxCell>
+        <mxCell id="intervals-label-2" parent="intervals" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Calendar workouts" vertex="1">
+          <mxGeometry height="24" width="220" y="67" as="geometry" />
+        </mxCell>
+        <mxCell id="stdio" edge="1" parent="1" source="host" style="edgeStyle=none;html=0;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=13;labelBackgroundColor=#ffffff;strokeColor=#64748b;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="sdk" value="MCP over stdio">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="modelcall" edge="1" parent="1" source="host" style="edgeStyle=none;html=0;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=13;labelBackgroundColor=#ffffff;strokeColor=#64748b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="model" value="Model requests / tool results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="invoke" edge="1" parent="1" source="sdk" style="edgeStyle=none;html=0;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=13;labelBackgroundColor=#ffffff;strokeColor=#64748b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="app" value="Invoke tools / return results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="deps" edge="1" parent="1" source="app" style="edgeStyle=none;html=0;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=13;labelBackgroundColor=#ffffff;strokeColor=#64748b;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="libs" value="In-process library calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="https" edge="1" parent="1" source="app" style="edgeStyle=none;html=0;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=13;labelBackgroundColor=#ffffff;strokeColor=#64748b;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="intervals" value="HTTPS + API key">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

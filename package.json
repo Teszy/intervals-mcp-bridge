@@ -15,22 +15,15 @@
   "license": "MIT",
   "main": "dist/src/index.js",
   "scripts": {
-    "dev": "node --env-file-if-exists=.env --import tsx --watch src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "test": "vitest",
     "test:run": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "prepare": "husky",
-    "activities": "node --env-file-if-exists=.env --import tsx src/cli.ts",
-    "check:commit": "pnpm typecheck && pnpm test:run",
-    "start": "node --env-file-if-exists=.env dist/src/index.js",
-    "mcp": "node --env-file-if-exists=.env --import tsx src/index.ts"
+    "check:commit": "pnpm typecheck && pnpm test:run"
   },
   "prettier": {
     "singleQuote": true,

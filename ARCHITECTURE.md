@@ -1,129 +1,156 @@
 # Architecture
 
-The bridge runs locally as an MCP server over stdio. An MCP host starts the process
-and communicates using stdin/stdout. One process uses one configured Intervals.icu
-athlete and personal API key.
+This document describes the bridge's own decisions: how upstream data becomes
+usable tool results, how calculations are kept reliable, and how a reviewed
+workout becomes a controlled calendar write. MCP wire semantics and Intervals
+field definitions belong to their upstream documentation and the source contracts.
+See [README.md](README.md) for setup, supported tools and CI/CD.
 
-```text
-MCP host → stdio → MCP tool → IntervalsClient → APIClient → Intervals.icu
-Activity CLI ──────────────────────┘
+## Component map and host boundaries
+
+The editable [draw.io diagram](docs/diagrams/architecture.drawio) shows the main
+participants and communication boundaries. Open it in diagrams.net or a draw.io
+editor. Box titles and descriptions are separate editable text objects attached
+to their box, with bold titles and centered descriptions matching the SVG preview.
+Export an updated SVG preview after editing.
+
+The grey frame is one running Node.js process. It contains our application and the
+third-party libraries it loads. Blue identifies our application code, purple
+identifies third-party libraries, and green identifies external hosts/services.
+Connections show communication or library calls, with results returning along the
+same path. They do not prescribe execution order or expose individual tool paths.
+
+![Bridge overview and external communication](docs/diagrams/components.svg)
+
+The bridge runs in Node.js with one configured athlete and API key per process.
+VS Code + Copilot is the tested host. Other stdio-capable hosts can use the same
+entry point, but are not validated by this repository. The host manages the model
+and conversation: the bridge does not call an LLM provider or hold a model API key.
+
+## Communication flow
+
+This sequence uses the same participants as the component map. It shows a typical
+tool interaction after startup. The supporting-library participant groups in-process
+Zod, Axios and Garmin SDK calls, not a separate service. Host/model exchanges are
+conceptual and managed by the host.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant H as MCP host
+    participant M as LLM / model provider
+    box Node.js process
+        participant S as MCP SDK
+        participant B as Bridge application
+        participant L as Supporting libraries
+    end
+    participant I as Intervals.icu API
+    H->>B: Launch compiled server with environment
+    B->>L: Validate configuration using Zod
+    L-->>B: Validated configuration
+    B->>S: Register tools and start stdio service
+    H->>S: Initialize connection and discover tools
+    S-->>H: Server capabilities and tool contracts
+    H->>M: User request and available tool contracts
+    M-->>H: Selected tool and arguments
+    Note over H,B: Publishing requires explicit approval of the exact preview in the host conversation
+    H->>S: tools/call over stdio
+    S->>S: Validate arguments against registered schema
+    S->>B: Invoke tool handler
+    B->>L: Apply application input contracts using Zod
+    L-->>B: Validated input
+    alt Operation needs upstream data or an approved calendar write
+        B->>L: Execute Intervals request through HTTP adapter
+        L->>I: Axios HTTPS GET or POST with API key
+        I-->>L: Response or HTTP failure
+        L->>L: Validate response using Zod or sanitize HTTP failure
+        L-->>B: Curated data or controlled exception
+        B->>B: Enforce domain checks and process data or update draft state
+    else Local workout preview
+        B->>L: Encode and decode-verify FIT using Garmin SDK
+        L-->>B: Verified FIT bytes
+        B->>B: Store reviewed workout and bytes under draft ID
+    end
+    B->>B: Format successful data or a controlled tool error
+    B-->>S: Structured content and JSON text, or isError result
+    S-->>H: MCP tool response over stdio
+    H->>M: Tool result for interpretation
+    M-->>H: Answer or another tool request
 ```
 
-## Responsibilities
+Tool selection and interpretation happen in the host/model interaction. The bridge
+executes explicit calls against the configured athlete. The SDK rejects invalid
+arguments before invoking a handler. Configuration failures stop startup, and
+application failures are mapped to controlled tool errors. The diagram shows the
+normal startup and accepted-call path rather than every validation branch.
 
-- `src/index.ts` loads validated configuration, starts the SDK's stdio service,
-  and closes it on termination signals. Stdout is reserved for MCP messages;
-  startup and transport diagnostics go to stderr. The SDK handles stdin closure.
-- `src/mcp/server.ts` creates the server and client, then registers individual tools.
-- `src/mcp/tools/` contains one file per tool, keeping its metadata, input/output
-  schemas, and handler together. `list_recent_activities` accepts an
-  optional day count (default 7, range 1–365), calls the activity client, and
-  returns `{ activities }`. `get_activity_details` fetches one session's metrics and
-  detected intervals by ID, returning `{ activity }`. `src/mcp/result.ts` provides
-  shared result formatting and sanitized error handling with a JSON text fallback.
-  `get_activity_stream_overview` selects measurements and a time window, and caps output
-  using shared sample indices so timestamps and measurements remain aligned.
-  `get_activity_stream_page` returns consecutive points with window-relative offsets
-  and nullable nextOffset without sampling. Each call fetches current upstream data.
-  `get_activity_stream_statistics` fetches full-resolution streams and delegates
-  calculations to `src/intervals/activity-stream-statistics.ts`; it does not use sampled output.
-- `get_athlete_settings` fetches the configured athlete with sport profiles through
-  `IntervalsClient.getAthleteSettings`. `src/intervals/schemas.ts` validates
-  a curated set of training fields and strips unrelated fields, including account
-  credentials. Zones retain upstream units and upper-limit semantics; no automatic
-  conversion to statistics boundaries is performed. Empty profile lists are valid.
-- `list_activity_workload` and `list_wellness` accept a shared validated date range
-  of at most 90 inclusive athlete-local calendar days. The client calls activities
-  and wellness endpoints separately with those dates. Workload exposes recorded
-  session metrics; wellness exposes curated recovery fields and upstream CTL/ATL.
-  Wellness records are ordered oldest first and duplicate/out-of-range dates are
-  rejected. Missing dates and null values are preserved; no fitness model, period
-  totals or missing observations are generated.
-- `preview_planned_workout` and `publish_planned_workout` share a per-server
-  `WorkoutDrafts` registry in `src/workouts/drafts.ts`. Preview validates an explicit
-  plan and generates FIT bytes in `src/workouts/fit.ts` using the Garmin SDK.
-  Publication sends only those stored bytes to the calendar events API. Input
-  schemas and event response schemas remain in `src/intervals/schemas.ts`.
-  Drafts track ready/publishing/published/unknown states, so repeat successful calls
-  do not write again and failed writes cannot be retried blindly. The registry
-  is in memory, not persistent; host consent is represented by approved=true.
-- `src/intervals/config.ts` validates environment configuration with Zod.
-  Entry-point commands load `.env`; reusable modules do not load files.
-- `src/intervals/client.ts` owns endpoint paths, UTC date bounds, and activity
-  response schema selection and domain validation. `src/intervals/schemas.ts` defines validated activity
-  summaries, session metrics, and intervals. MCP tool output schemas reuse these
-  data schemas, keeping the Intervals layer independent of MCP contracts.
-- `src/api/` handles HTTP requests, authentication headers, timeouts, sanitized
-  transport errors, and response schema validation. GET, POST and file upload require
-  a Zod response schema and infer their output types from it. Schema failures throw
-  `APIResponseValidationError`, distinct from `HTTPError`, with issue codes and field
-  paths only; raw responses and Zod messages are not retained. Intervals-specific
-  identity, timestamp ordering and stream alignment checks stay in `IntervalsClient`. Intervals uses Basic auth with the fixed username `API_KEY`.
-- `src/cli.ts` provides human-readable activity output independently of MCP.
+A preview is local and performs no Intervals write. Publication is a separate
+call using the reviewed draft. Repeating a successful publication can return its
+stored result without another HTTP request. A host may make several tool calls
+before answering the user.
 
-## Errors and boundaries
+## Composition and ownership
 
-The MCP SDK validates tool arguments before calling the handler. HTTP errors are
-returned as tool results with `isError: true`; malformed upstream responses get a
-fixed message. Credentials, raw responses, and arbitrary exception details are
-not included in tool errors. Empty activity lists are successful results.
-Missing measurements are preserved as absent or null, rather than filled with
-zero. Hidden activity stubs are rejected as unavailable session details.
-Selected metrics and scalar streams are exposed; GPS coordinates are omitted.
-Streams require ordered elapsed timestamps and matching measurement lengths.
-The tool returns at most 500 points per stream, defaulting to 200. Longer windows
-are sampled by index with endpoints preserved; the output reports source, window,
-and returned counts plus a sampling flag. Sampling can miss short peaks and is
-unsuitable for exact averages or time-in-zone calculations. Time windows allow
-closer inspection without changing original elapsed timestamps. This bounds MCP
-output, not the upstream download size.
+| Responsibility                | Code and architectural purpose                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Composition and configuration | Entry point and server factory construct the configured client, tool registry and session state.                                          |
+| MCP interface                 | Tool adapters and the shared result adapter translate MCP calls into application operations and return curated data or controlled errors. |
+| Application logic             | Stream analysis and reviewed workout drafts provide the behavior specific to this bridge. The sections below explain their constraints.   |
+| Intervals integration         | The Intervals client and HTTP adapter isolate upstream endpoints, authentication, response validation and consistency checks.             |
 
-## Stream statistics and missing measurements
+The MCP SDK supplies transport and dispatch. Supporting libraries supply schema
+validation (Zod), HTTP execution (Axios) and FIT encoding/decoding (Garmin SDK).
+They run inside the process; Intervals.icu is the external service reached over
+HTTPS. The host owns model communication, while the bridge owns Intervals access.
 
-Recordings contain discrete samples, sometimes at irregular intervals. A time
-window can start or end between those samples. Summaries use the full-resolution
-recording so output sampling does not affect calculated means or zone durations.
-`src/intervals/activity-stream-statistics.ts` performs these calculations independently of
-HTTP and MCP.
+### Data contracts and processing
 
-The calculation does not predict or reconstruct missing measurements. It assumes
-each valid reading holds until the next timestamp for intervals within the gap
-limit. Null readings and longer gaps remain unknown and are excluded from means
-and zone durations. The final reading receives no duration beyond its timestamp.
+The shared result adapter returns the same successful object as structured content
+and JSON text for host compatibility. It encloses the application operation,
+including HTTP and tool-side processing. Known HTTP errors retain their sanitized
+message, while other exceptions use a fixed tool-specific message. Credentials,
+raw responses and arbitrary exception details do not reach the model.
 
-For example, readings of 100 at second 0 and 160 at second 10, followed by a
-recording endpoint at second 30, contribute `100 × 10 + 160 × 20`. The mean is
-140 over 30 valid seconds. A window from seconds 5–25 clips those contributions
-to 5 and 15 seconds, respectively. This is an explicit calculation assumption,
-not a claim about unrecorded values.
+Response schemas select exposed fields. The Intervals client then enforces domain
+consistency, such as athlete identity, wellness date integrity and stream alignment.
+Missing observations remain absent or null. Wellness fitness/fatigue values come
+from Intervals rather than a fitness or medical-readiness model calculated here.
 
-Stream statistics hold each valid value until the next timestamp, clipping durations
-to the requested window without extrapolating the final sample. Means are weighted
-by valid duration, including measured zeros and stopped time. Intervals longer than
-`maxGapSeconds` (default 30) are excluded even if they have a value. Each stream
-reports valid, missing, and gap seconds plus coverage of the clipped window.
-Extrema and valid sample counts describe observations within the window; a held
-value originating before the window can contribute to its mean without being an
-observed point inside it. Zero-duration windows have no mean or coverage percentage.
-Optional zone boundaries use stream units and place exact boundary values in the
-higher zone. Zones count valid duration only and require explicit boundaries;
-the statistics tool does not automatically fetch athlete settings. The separate
-`get_athlete_settings` tool supplies current personal context, not historical zones. These recording-based statistics
-may differ from Intervals' moving-time metrics.
+Stream presentation and numerical analysis are separate operations. Sampling keeps
+overviews manageable, paging preserves original readings, and statistics use
+full-resolution data with coverage information. This prevents presentation sampling
+from changing numerical analysis. Output limits do not bound the upstream download.
+Detailed units, gap rules and zone semantics stay in source contracts and tests.
 
-Stdio has no network listener or separate user-authentication layer. The MCP host
-controls access to the local process; the configured API key controls upstream
-access. HTTP hosting and OAuth authorization are future work.
+### Reviewed workout state
 
-## Extending the server
+The preview/publish split binds approval to a concrete artifact. Preview validates
+a workout, encodes and verifies its FIT representation, and stores the workout and
+bytes in a bounded, session-scoped registry. Content hashing reuses identical
+previews. Publication uses the stored bytes rather than regenerating the workout.
 
-Add an endpoint and response schema to the Intervals layer, then register a tool
-in its own file under `src/mcp/tools/` with input/output schemas and annotations.
-Register the tool in `src/mcp/server.ts` and reuse `src/mcp/result.ts` for responses.
-Keep HTTP logic
-in APIClient. Extract shared validation helpers when another endpoint introduces
-actual repetition.
+Drafts transition through ready, publishing, published or unknown states. The
+publication guard prevents overlapping writes and returns the stored event after
+a successful publication. An uncertain outcome blocks retries because a timeout
+or invalid response can occur after Intervals has already created the event.
 
-Tests mock HTTP transport and exercise tool discovery and calls through the SDK's
-in-memory transport. No live API credentials are required. Update this document
-when component responsibilities or transport decisions change.
+Restarting the process loses drafts and stored event results. The draft external
+ID is not a durable idempotency guarantee. Explicit user approval is enforced by
+the host workflow, while the server checks the approval argument and draft state.
+It cannot independently inspect conversation consent.
+
+## Maintaining these boundaries
+
+Add endpoint integration and response contracts in the Intervals layer, then
+register a tool using the shared result adapter. Keep calculations independent of
+transport and keep write state explicit. Tests mock upstream HTTP and exercise
+SDK discovery/calls through in-memory transport; they verify our contracts without
+requiring live credentials.
+
+Update the diagrams when responsibilities, dependencies, transport or state
+ownership change. Leave detailed field rules in schemas/tool descriptions and CI
+steps in the workflow files.
+
+Upstream references: [MCP SDK](https://ts.sdk.modelcontextprotocol.io/v2/),
+[Intervals API](https://intervals.icu/api-docs.html),
+[Garmin FIT workouts](https://developer.garmin.com/fit/articles/file-types/workout.html).

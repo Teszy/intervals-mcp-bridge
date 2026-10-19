@@ -596,6 +596,32 @@ describe('MCP athlete settings tool', () => {
     expect(response).toHaveProperty('result.isError', true);
     expect(JSON.stringify(response)).not.toContain('secret-account-key');
   });
+  it('returns original zone limits with an advisory warning instead of a tool error', async () => {
+    mockHttp({
+      id: 'i12345',
+      timezone: 'Europe/Budapest',
+      sportSettings: [{ id: 4, types: ['Rowing'], hr_zones: [184, 183] }],
+    });
+    const request = await connect();
+    const response = await request('tools/call', { name: 'get_athlete_settings', arguments: {} });
+    const output = {
+      settings: {
+        id: 'i12345',
+        timezone: 'Europe/Budapest',
+        sportSettings: [{ id: 4, types: ['Rowing'], hr_zones: [184, 183] }],
+        zoneWarnings: [
+          { sportSettingsId: 4, types: ['Rowing'], field: 'hr_zones', code: 'INVALID_ZONE_LIMITS' },
+        ],
+      },
+    };
+    expect(response).not.toHaveProperty('result.isError', true);
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: output,
+        content: [{ type: 'text', text: JSON.stringify(output) }],
+      },
+    });
+  });
 });
 
 describe.each([

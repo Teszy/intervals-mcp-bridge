@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.9.0...v1.0.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* preserve athlete zone settings and document verified ChatGPT access ([#24](https://github.com/Teszy/intervals-mcp-bridge/issues/24)) ([06bd945](https://github.com/Teszy/intervals-mcp-bridge/commit/06bd9455213b1febed8cc5b032f8193dbc3b27af))
+
 ## [0.9.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.8.0...v0.9.0) (2026-10-13)
 
 

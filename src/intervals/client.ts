@@ -13,7 +13,7 @@ import {
   type TrainingDateRange,
   type ActivityWorkload,
   type Wellness,
-  athleteSettingsSchema,
+  athleteSettingsResponseSchema,
   type AthleteSettings,
   activityDetailsSchema,
   activityIdSchema,
@@ -101,7 +101,10 @@ export class IntervalsClient {
 
   /** Fetch current settings, exposing only training context fields. */
   async getAthleteSettings(): Promise<AthleteSettings> {
-    const data = await this.#api.get(`/athlete/${this.#config.athleteId}`, athleteSettingsSchema);
+    const data = await this.#api.get(
+      `/athlete/${this.#config.athleteId}`,
+      athleteSettingsResponseSchema,
+    );
     if (this.#config.athleteId !== '0' && data.id !== this.#config.athleteId) {
       throw new Error('Intervals API returned settings for a different athlete.');
     }

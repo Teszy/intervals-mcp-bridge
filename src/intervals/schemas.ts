@@ -95,12 +95,7 @@ export type ActivityStreams = {
   missingStreams: ActivityStreamType[];
 };
 
-const zoneLimits = z
-  .array(z.number().nonnegative())
-  .refine(
-    (values) => values.every((value, index) => index === 0 || value > values[index - 1]!),
-    'Zone limits must be strictly increasing.',
-  );
+const zoneLimits = z.array(z.number());
 
 /** Curated fields from the official Athlete / SportSettings API models. */
 export const sportSettingsSchema = z.object({
@@ -144,9 +139,43 @@ export const athleteSettingsSchema = z.object({
     .nullish()
     .describe('Kilograms; configured weight, not daily wellness'),
   sportSettings: z.array(sportSettingsSchema),
+  zoneWarnings: z
+    .array(
+      z.object({
+        sportSettingsId: z.number().int(),
+        types: z.array(z.string()),
+        field: z.enum(['hr_zones', 'power_zones', 'pace_zones']),
+        code: z.literal('INVALID_ZONE_LIMITS'),
+      }),
+    )
+    .optional()
+    .describe(
+      'Non-increasing upstream zone arrays are returned unchanged; warnings identify the affected profile and field',
+    ),
 });
 
 export type AthleteSettings = z.infer<typeof athleteSettingsSchema>;
+
+/** Preserve upstream settings and attach advisory warnings without repairing zone limits. */
+export const athleteSettingsResponseSchema = athleteSettingsSchema
+  .omit({ zoneWarnings: true })
+  .transform((athlete): AthleteSettings => {
+    const zoneWarnings: NonNullable<AthleteSettings['zoneWarnings']> = [];
+    for (const profile of athlete.sportSettings) {
+      for (const field of ['hr_zones', 'power_zones', 'pace_zones'] as const) {
+        const limits = profile[field];
+        if (limits?.some((value, index) => index > 0 && value <= limits[index - 1]!)) {
+          zoneWarnings.push({
+            sportSettingsId: profile.id,
+            types: profile.types,
+            field,
+            code: 'INVALID_ZONE_LIMITS',
+          });
+        }
+      }
+    }
+    return zoneWarnings.length > 0 ? { ...athlete, zoneWarnings } : athlete;
+  });
 
 /** Inclusive athlete-local dates; UTC arithmetic counts calendar days only. */
 export const trainingDateRangeSchema = z

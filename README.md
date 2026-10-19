@@ -1,7 +1,7 @@
 # intervals-mcp-bridge
 
-A local MCP server that gives Copilot access to Intervals.icu training data and
-lets it publish approved planned workouts.
+A local MCP server that gives Copilot and ChatGPT access to Intervals.icu training
+data and lets them publish approved planned workouts.
 
 ## Setup
 
@@ -18,8 +18,7 @@ Set `INTERVALS_API_KEY` in `.env` to your personal API key from Intervals.icu
 Settings > Developer Settings. Set `INTERVALS_ATHLETE_ID` to your athlete ID. See [.env.example](.env.example)
 for the configuration.
 
-Create `.vscode/mcp.json` with the following configuration, or use the file
-already included in this repository:
+Create `.vscode/mcp.json` with the following configuration:
 
 ```json
 {
@@ -35,7 +34,7 @@ already included in this repository:
 
 This configuration loads `.env` and runs the compiled server from your workspace.
 
-## Start the server
+## Start with VS Code and Copilot
 
 Build the server before starting it:
 
@@ -43,12 +42,22 @@ Build the server before starting it:
 pnpm build
 ```
 
-Open [.vscode/mcp.json](.vscode/mcp.json) and start the `intervals` server using
+Open `.vscode/mcp.json` and start the `intervals` server using
 VS Code's MCP controls. Copilot can then call its tools. For example, ask it to
 list your activities from the past week to verify the connection to Intervals.icu.
 
 After changing the source, run `pnpm build` again and restart the server in VS Code.
 VS Code manages the server process and communicates with it over stdio.
+
+## Use with ChatGPT
+
+ChatGPT can use the same local server through OpenAI Secure MCP Tunnel.
+Follow the [tunnel setup guide](docs/secure-mcp-tunnel.md), then select the Intervals
+plugin with `@` in a ChatGPT conversation. Keep the tunnel client running while
+using the tools.
+
+Activity reading, athlete settings, workout preview, approved publication and repeat
+publication without duplicate creation have been manually verified through ChatGPT.
 
 ## What the server can do
 

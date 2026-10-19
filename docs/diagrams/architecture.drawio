@@ -22,7 +22,7 @@
         <mxCell id="host-label-0" parent="host" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=17;fontStyle=1;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="MCP host" vertex="1">
           <mxGeometry height="24" width="240" y="16" as="geometry" />
         </mxCell>
-        <mxCell id="host-label-1" parent="host" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="VS Code + Copilot" vertex="1">
+        <mxCell id="host-label-1" parent="host" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontColor=#172338;fontSize=15;fontStyle=0;strokeColor=none;fillColor=none;resizable=0;rotatable=0;" value="Copilot / ChatGPT via tunnel" vertex="1">
           <mxGeometry height="24" width="240" y="40" as="geometry" />
         </mxCell>
         <mxCell id="model" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#e5f4ef;strokeColor=#40836e;fontSize=16;fontFamily=Arial;fontColor=#172338;strokeWidth=1.5;arcSize=25;absoluteArcSize=0;" value="" vertex="1">

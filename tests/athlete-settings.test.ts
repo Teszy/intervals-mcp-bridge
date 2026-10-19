@@ -52,10 +52,74 @@ describe('athlete settings', () => {
       await new IntervalsClient({ ...config, athleteId: '0' }).getAthleteSettings(),
     ).toHaveProperty('id', 'i12345');
   });
+  it('preserves a descending final rowing HR limit and warns without losing other settings', async () => {
+    const running = { id: 1, types: ['Run'], hr_zones: [130, 150, 190] };
+    mockHttp({
+      id: 'i12345',
+      timezone: 'Europe/Budapest',
+      sportSettings: [
+        running,
+        {
+          id: 2,
+          types: ['Rowing'],
+          hr_zones: [140, 156, 163, 174, 179, 184, 183],
+          power_zones: [55, 75, 100],
+          max_hr: 183,
+        },
+      ],
+    });
+    const result = await new IntervalsClient(config).getAthleteSettings();
+    expect(result.timezone).toBe('Europe/Budapest');
+    expect(result.sportSettings[0]).toEqual(running);
+    expect(result.sportSettings[1]).toMatchObject({
+      hr_zones: [140, 156, 163, 174, 179, 184, 183],
+      power_zones: [55, 75, 100],
+      max_hr: 183,
+    });
+    expect(result.zoneWarnings).toEqual([
+      { sportSettingsId: 2, types: ['Rowing'], field: 'hr_zones', code: 'INVALID_ZONE_LIMITS' },
+    ]);
+  });
+  it.each(['hr_zones', 'power_zones', 'pace_zones'] as const)(
+    'preserves non-increasing %s arrays with advisory warnings',
+    async (field) => {
+      for (const limits of [
+        [150, 130],
+        [100, 100],
+      ]) {
+        mockHttp({
+          id: 'i12345',
+          sportSettings: [{ id: 1, types: ['Run'], [field]: limits, ftp: 250 }],
+        });
+        const result = await new IntervalsClient(config).getAthleteSettings();
+        expect(result.sportSettings[0]).toMatchObject({ [field]: limits, ftp: 250 });
+        expect(result.zoneWarnings).toEqual([
+          { sportSettingsId: 1, types: ['Run'], field, code: 'INVALID_ZONE_LIMITS' },
+        ]);
+      }
+    },
+  );
+  it('does not constrain numeric zone values beyond the upstream data type', async () => {
+    const profile = { id: 1, types: ['Run'], hr_zones: [-1, 150], power_zones: [0, 100] };
+    mockHttp({ id: 'i12345', sportSettings: [profile] });
+    expect(await new IntervalsClient(config).getAthleteSettings()).toEqual({
+      id: 'i12345',
+      sportSettings: [profile],
+    });
+  });
+  it('preserves null and missing zones without warnings and ignores upstream warning fields', async () => {
+    const profile = { id: 1, types: ['Run'], hr_zones: null, pace_zones: [] };
+    mockHttp({ id: 'i12345', sportSettings: [profile], zoneWarnings: ['untrusted-warning'] });
+    expect(await new IntervalsClient(config).getAthleteSettings()).toEqual({
+      id: 'i12345',
+      sportSettings: [profile],
+    });
+  });
   it.each([
     { id: 'other', sportSettings: [] },
+    { id: 'i12345', sportSettings: [{ id: 1, types: ['Run'], hr_zones: ['150'] }] },
+    { id: 'i12345', sportSettings: [{ id: 1, types: ['Run'], pace_zones: {} }] },
     {},
-    { id: 'i12345', sportSettings: [{ id: 1, types: ['Run'], hr_zones: [150, 130] }] },
     { id: 'i12345', sportSettings: [{ id: 1, types: ['Run'], ftp: '250' }] },
   ])('rejects invalid or mismatched responses %j', async (data) => {
     mockHttp(data);

@@ -23,9 +23,19 @@ same path. They do not prescribe execution order or expose individual tool paths
 ![Bridge overview and external communication](docs/diagrams/components.svg)
 
 The bridge runs in Node.js with one configured athlete and API key per process.
-VS Code + Copilot is the tested host. Other stdio-capable hosts can use the same
-entry point, but are not validated by this repository. The host manages the model
-and conversation: the bridge does not call an LLM provider or hold a model API key.
+VS Code + Copilot and ChatGPT through Secure MCP Tunnel are verified host paths.
+The diagram abstracts the host connection: VS Code connects directly over stdio,
+while ChatGPT reaches the local stdio server through OpenAI's tunnel service and
+a separate local `tunnel-client` process. Both use the same compiled entry point.
+The relay is outside the bridge process, and the bridge has no public HTTP listener.
+The host manages the model and conversation; the bridge does not call a model API.
+The tunnel client's OpenAI runtime key is separate from the bridge's Intervals key.
+
+The ChatGPT test confirmed draft continuity between preview and publication, and
+that repeating publication returned the stored event without a duplicate write.
+This verifies the tested session, not durability across process restarts or draft
+sharing between hosts. Setup instructions are in the
+[tunnel guide](docs/secure-mcp-tunnel.md).
 
 ## Communication flow
 
@@ -33,6 +43,8 @@ This sequence uses the same participants as the component map. It shows a typica
 tool interaction after startup. The supporting-library participant groups in-process
 Zod, Axios and Garmin SDK calls, not a separate service. Host/model exchanges are
 conceptual and managed by the host.
+For ChatGPT, host-to-SDK messages pass through the tunnel relay, with stdio on the
+local leg; the sequence groups that external relay into the host connection.
 
 ```mermaid
 sequenceDiagram
@@ -115,6 +127,11 @@ Response schemas select exposed fields. The Intervals client then enforces domai
 consistency, such as athlete identity, wellness date integrity and stream alignment.
 Missing observations remain absent or null. Wellness fitness/fatigue values come
 from Intervals rather than a fitness or medical-readiness model calculated here.
+
+Zone settings are numeric arrays returned as recorded. Non-increasing boundaries
+produce advisory `zoneWarnings` without replacing or rejecting the values. The
+bridge does not repair upstream configuration; statistics retain their own explicit
+input requirements.
 
 Stream presentation and numerical analysis are separate operations. Sampling keeps
 overviews manageable, paging preserves original readings, and statistics use

@@ -3,14 +3,16 @@ import type { IntervalsClient } from '../intervals/client.js';
 import {
   plannedWorkoutSchema,
   type PlannedWorkout,
-  type PlannedWorkoutEvent,
-} from '../intervals/schemas.js';
+  type PlannedWorkoutInput,
+  type WorkoutDraftStatus,
+} from '../schemas/workouts.js';
+import type { PlannedWorkoutEvent } from '../schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
 
 type Draft = {
   workout: PlannedWorkout;
   fit: Uint8Array;
-  status: 'ready' | 'publishing' | 'published' | 'unknown';
+  status: WorkoutDraftStatus;
   event?: PlannedWorkoutEvent;
 };
 
@@ -19,7 +21,7 @@ export class WorkoutDrafts {
   readonly #drafts = new Map<string, Draft>();
   readonly #byContent = new Map<string, string>();
 
-  preview(input: PlannedWorkout) {
+  preview(input: PlannedWorkoutInput) {
     const workout = plannedWorkoutSchema.parse(input);
     const contentHash = createHash('sha256').update(JSON.stringify(workout)).digest('hex');
     let draftId = this.#byContent.get(contentHash);

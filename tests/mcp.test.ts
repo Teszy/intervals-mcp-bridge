@@ -155,6 +155,26 @@ describe('MCP recent activities tool', () => {
     expect(response).not.toHaveProperty('result.isError', true);
   });
 
+  it.each([
+    { name: 'list_recent_activities', arguments: { day: 7 } },
+    { name: 'get_athlete_settings', arguments: { extra: true } },
+    {
+      name: 'list_wellness',
+      arguments: { oldest: '2026-10-01', newest: '2026-10-02', extra: true },
+    },
+    {
+      name: 'get_activity_stream_statistics',
+      arguments: { activityId: 'i1', zones: [{ type: 'watts', boundaries: [100], extra: true }] },
+    },
+    { name: 'preview_planned_workout', arguments: { workout: plannedWorkout, extra: true } },
+  ])('rejects unknown input fields before HTTP: $name', async (params) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    const response = await request('tools/call', params);
+    expect(response).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+
   it.each([0, 366, 1.5, '7'])('rejects invalid days %s before requesting', async (days) => {
     const adapter = mockHttp();
     const request = await connect();

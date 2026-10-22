@@ -1,39 +1,37 @@
+import { addZoneWarnings } from './athlete-settings.js';
 import { APIClient } from '../api/client.js';
 import type { BasicAuth } from '../api/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
+import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from '../schemas/events.js';
+import type { PlannedWorkout } from '../schemas/workouts.js';
 import {
-  plannedWorkoutEventSchema,
-  plannedWorkoutSchema,
-  type PlannedWorkout,
-  type PlannedWorkoutEvent,
   activityWorkloadSchema,
-  wellnessSchema,
-  trainingDateRangeSchema,
-  type TrainingDateRange,
   type ActivityWorkload,
-  type Wellness,
-  athleteSettingsResponseSchema,
-  type AthleteSettings,
   activityDetailsSchema,
   activityIdSchema,
-  activitySchema,
+  activitySummarySchema,
+  recentActivityDaysSchema,
+  type ActivityDetails,
+  type ActivitySummary,
+} from '../schemas/activities.js';
+import { wellnessSchema, type Wellness } from '../schemas/wellness.js';
+import { trainingDateRangeSchema, type TrainingDateRange } from '../schemas/date-range.js';
+import {
+  athleteSettingsResponseSchema,
+  type AthleteSettings,
+} from '../schemas/athlete-settings.js';
+import {
   activityStreamTypesSchema,
   activityStreamsResponseSchema,
   defaultActivityStreamTypes,
   type ActivityStreams,
   type ActivityStreamType,
-  type ActivityDetails,
-  type ActivitySummary,
-} from './schemas.js';
+} from '../schemas/streams.js';
 
-export { activitySchema } from './schemas.js';
-export type {
-  ActivityDetails,
-  ActivitySummary,
-  ActivityStreams,
-  ActivityStreamType,
-} from './schemas.js';
+export { activitySummarySchema } from '../schemas/activities.js';
+export type { ActivityDetails, ActivitySummary } from '../schemas/activities.js';
+export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js';
 
 export class IntervalsClient {
   readonly #config: IntervalsConfig;
@@ -55,15 +53,14 @@ export class IntervalsClient {
     fit: Uint8Array,
     externalId: string,
   ): Promise<PlannedWorkoutEvent> {
-    const plan = plannedWorkoutSchema.parse(workout);
     return this.#api.post(
       `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
       plannedWorkoutEventSchema,
       {
         category: 'WORKOUT',
-        type: plan.sport,
-        name: plan.name,
-        start_date_local: plan.startDateLocal,
+        type: workout.sport,
+        name: workout.name,
+        start_date_local: workout.startDateLocal,
         external_id: externalId,
         filename: 'workout.fit',
         file_contents_base64: Buffer.from(fit).toString('base64'),
@@ -108,20 +105,21 @@ export class IntervalsClient {
     if (this.#config.athleteId !== '0' && data.id !== this.#config.athleteId) {
       throw new Error('Intervals API returned settings for a different athlete.');
     }
-    return data;
+    return addZoneWarnings(data);
   }
 
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
   async getRecentActivities(days = 7): Promise<ActivitySummary[]> {
-    if (!Number.isInteger(days) || days < 1 || days > 365) {
+    const selection = recentActivityDaysSchema.safeParse(days);
+    if (!selection.success) {
       throw new Error('days must be an integer between 1 and 365.');
     }
     const newest = new Date();
     const oldest = new Date(newest);
-    oldest.setUTCDate(oldest.getUTCDate() - days + 1);
+    oldest.setUTCDate(oldest.getUTCDate() - selection.data + 1);
     const data = await this.#api.get(
       `/athlete/${this.#config.athleteId}/activities`,
-      z.array(activitySchema),
+      z.array(activitySummarySchema),
       {
         oldest: oldest.toISOString().slice(0, 10),
         newest: newest.toISOString().slice(0, 10),

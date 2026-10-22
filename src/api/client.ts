@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
 import { APIResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
 import type { Auth, QueryParams } from './types.js';

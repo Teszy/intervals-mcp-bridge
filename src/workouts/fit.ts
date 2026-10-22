@@ -8,11 +8,10 @@ import {
   type WorkoutStepMesg,
 } from '@garmin/fitsdk';
 import { createHash } from 'node:crypto';
-import { plannedWorkoutSchema, type PlannedWorkout } from '../intervals/schemas.js';
+import type { PlannedWorkout } from '../schemas/workouts.js';
 
-/** Absolute targets use FIT's HR/power offsets; dynamic fields require raw scales. */
-export function encodeWorkoutFit(input: PlannedWorkout): Uint8Array {
-  const workout = plannedWorkoutSchema.parse(input);
+/** Accepts a validated, normalized workout. Absolute targets use FIT's HR/power offsets; dynamic fields require raw scales. */
+export function encodeWorkoutFit(workout: PlannedWorkout): Uint8Array {
   const hash = createHash('sha256').update(JSON.stringify(workout)).digest();
   const encoder = new Encoder();
   const fileId: FileIdMesg = {

@@ -1,4 +1,4 @@
-import type { ActivityDetails } from '../../src/intervals/schemas.js';
+import type { ActivityDetails } from '../../src/schemas/activities.js';
 
 /** Synthetic running session shared by domain and MCP tests. */
 export const activityDetails = {

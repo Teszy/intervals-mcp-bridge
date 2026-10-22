@@ -1,11 +1,12 @@
+import {
+  getActivityDetailsInputSchema,
+  getActivityDetailsOutputSchema,
+} from '../../schemas/mcp/tools/get-activity-details.js';
 import type { McpServer } from '@modelcontextprotocol/server';
-import { z } from 'zod';
-import type { IntervalsClient } from '../../intervals/client.js';
-import { activityDetailsSchema, activityIdSchema } from '../../intervals/schemas.js';
-import { toolResult } from '../result.js';
 
-const inputSchema = z.object({ activityId: activityIdSchema });
-const outputSchema = z.object({ activity: activityDetailsSchema });
+import type { IntervalsClient } from '../../intervals/client.js';
+
+import { toolResult } from '../result.js';
 
 export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsClient): void {
   server.registerTool(
@@ -14,8 +15,8 @@ export function registerGetActivityDetailsTool(server: McpServer, client: Interv
       title: 'Activity details',
       description:
         'Fetch session metrics and detected work/recovery intervals for an activity. Use an ID from list_recent_activities. Missing or null measurements are unavailable, not zero. Speeds are meters per second; cadence units depend on sport and recording source. Use get_activity_stream_overview for measurements over time.',
-      inputSchema,
-      outputSchema,
+      inputSchema: getActivityDetailsInputSchema,
+      outputSchema: getActivityDetailsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     ({ activityId }) =>

@@ -1,6 +1,10 @@
 import { Decoder, Stream } from '@garmin/fitsdk';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { plannedWorkoutSchema } from '../src/intervals/schemas.js';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import {
+  plannedWorkoutSchema,
+  type PlannedWorkout,
+  type PlannedWorkoutInput,
+} from '../src/schemas/workouts.js';
 import { IntervalsClient } from '../src/intervals/client.js';
 import { encodeWorkoutFit } from '../src/workouts/fit.js';
 import { WorkoutDrafts } from '../src/workouts/drafts.js';
@@ -14,6 +18,16 @@ const config = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('FIT planned workouts', () => {
+  it('requires a validated workout type for FIT encoding and publication', () => {
+    expectTypeOf<
+      PlannedWorkoutInput extends PlannedWorkout ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<Parameters<typeof encodeWorkoutFit>[0]>().toEqualTypeOf<PlannedWorkout>();
+    expectTypeOf<
+      Parameters<IntervalsClient['publishPlannedWorkout']>[0]
+    >().toEqualTypeOf<PlannedWorkout>();
+    expectTypeOf(plannedWorkoutSchema.parse(plannedWorkout)).toEqualTypeOf<PlannedWorkout>();
+  });
   it('round-trips required messages, Unicode, time/distance scales and absolute targets with valid CRC', () => {
     const decoder = new Decoder(Stream.fromByteArray(encodeWorkoutFit(plannedWorkout)));
     expect(decoder.checkIntegrity()).toBe(true);
@@ -55,7 +69,9 @@ describe('FIT planned workouts', () => {
         { ...plannedWorkout.steps[0]!, target: { type: 'power' as const, low: 200, high: 250 } },
       ],
     };
-    const { messages } = new Decoder(Stream.fromByteArray(encodeWorkoutFit(workout))).read();
+    const { messages } = new Decoder(
+      Stream.fromByteArray(encodeWorkoutFit(plannedWorkoutSchema.parse(workout))),
+    ).read();
     expect(messages.workoutMesgs?.[0]).toHaveProperty('sport', 'cycling');
     expect(messages.workoutStepMesgs?.[0]).toMatchObject({
       targetType: 'power',
@@ -81,6 +97,34 @@ describe('FIT planned workouts', () => {
 });
 
 describe('workout draft publication', () => {
+  it('normalizes defaults before hashing, encoding and storing the reviewed workout', () => {
+    const drafts = new WorkoutDrafts();
+    const input = {
+      ...plannedWorkout,
+      name: '  Default targets  ',
+      steps: [{ name: '  Easy  ', duration: { type: 'time' as const, seconds: 60 } }],
+    };
+    const preview = drafts.preview(input);
+    expect(preview.workout.name).toBe('Default targets');
+    expect(preview.workout.steps).toEqual([
+      {
+        name: 'Easy',
+        duration: { type: 'time', seconds: 60 },
+        intensity: 'active',
+        target: { type: 'open' },
+      },
+    ]);
+    expect(drafts.preview(preview.workout).draftId).toBe(preview.draftId);
+    const { messages, errors } = new Decoder(
+      Stream.fromByteArray(encodeWorkoutFit(preview.workout)),
+    ).read();
+    expect(errors).toEqual([]);
+    expect(messages.workoutStepMesgs?.[0]).toMatchObject({
+      intensity: 'active',
+      targetType: 'open',
+      durationTime: 60,
+    });
+  });
   it('previews without HTTP and submits exact FIT bytes only once', async () => {
     const adapter = mockHttp({ ...plannedEvent, private: 'secret' });
     const drafts = new WorkoutDrafts();

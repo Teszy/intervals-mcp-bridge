@@ -9,4 +9,7 @@ coverage/
 
 .DS_Store
 
+# draw.io editor backups
+*.drawio.bkp
+
 *.log

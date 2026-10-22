@@ -1,63 +1,92 @@
 # intervals-mcp-bridge
 
-A local MCP server that gives Copilot and ChatGPT access to Intervals.icu training
+MCP server that gives ChatGPT access to Intervals.icu training
 data and lets them publish approved planned workouts.
 
 ## Setup
 
-Use Node.js 24 and the pnpm version pinned in [package.json](package.json).
-Open this repository, then install dependencies and
-create your local environment file:
+> [!NOTE]
+> Before using this project, make sure Node.js 24 and the pnpm version pinned in
+> [package.json](package.json) are available on your machine.
 
-```bash
-pnpm install
-cp .env.example .env
+Create a local `.env` file from [.env.example](.env.example) in the repository root.
+
+### Obtain Intervals.icu key and ID
+
+Fill in the Intervals.icu values in `.env`: obtain your personal API key from
+Intervals.icu **Settings > Developer Settings** and set your athlete ID.
+
+In the repository's `.env`:
+
+```dotenv
+INTERVALS_API_KEY=your_intervals_api_key
+INTERVALS_ATHLETE_ID=i123456
 ```
 
-Set `INTERVALS_API_KEY` in `.env` to your personal API key from Intervals.icu
-Settings > Developer Settings. Set `INTERVALS_ATHLETE_ID` to your athlete ID. See [.env.example](.env.example)
-for the configuration.
+### OpenAI tunnel
 
-Create `.vscode/mcp.json` with the following configuration:
+In [OpenAI Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels),
+create a tunnel and associate it with the Platform organization and ChatGPT
+account/workspace you will use. Copy its full `tunnel_…` ID.
 
-```json
-{
-  "servers": {
-    "intervals": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["--env-file=${workspaceFolder}/.env", "${workspaceFolder}/dist/src/index.js"]
-    }
-  }
-}
+In the repository's `.env`:
+
+```dotenv
+OPENAI_TUNNEL_ID=tunnel_REPLACE_WITH_YOUR_ID
 ```
 
-This configuration loads `.env` and runs the compiled server from your workspace.
+### Obtain OpenAI runtime key
 
-## Start with VS Code and Copilot
+Create a runtime API key in [OpenAI Platform API keys](https://platform.openai.com/settings/organization/api-keys)
+for that organization. Tunnel creation requires **Tunnels Read + Manage**;
+runtime use and selecting the tunnel in ChatGPT require **Tunnels Read + Use**.
+See the [official Secure MCP Tunnel guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+for permissions and account associations.
 
-Build the server before starting it:
+In the repository's `.env`:
 
-```bash
-pnpm build
+```dotenv
+OPENAI_TUNNEL_API_KEY=your_openai_tunnel_runtime_api_key
 ```
 
-Open `.vscode/mcp.json` and start the `intervals` server using
-VS Code's MCP controls. Copilot can then call its tools. For example, ask it to
-list your activities from the past week to verify the connection to Intervals.icu.
+## Run
 
-After changing the source, run `pnpm build` again and restart the server in VS Code.
-VS Code manages the server process and communicates with it over stdio.
+Docker is the recommended runtime. The image includes the compiled MCP bridge,
+Node.js and the OpenAI tunnel client.
 
-## Use with ChatGPT
+Install and start Docker Desktop (or Docker Engine with Compose support).
 
-ChatGPT can use the same local server through OpenAI Secure MCP Tunnel.
-Follow the [tunnel setup guide](docs/secure-mcp-tunnel.md), then select the Intervals
-plugin with `@` in a ChatGPT conversation. Keep the tunnel client running while
-using the tools.
+### Build and start the container
 
-Activity reading, athlete settings, workout preview, approved publication and repeat
-publication without duplicate creation have been manually verified through ChatGPT.
+From the repository root, run:
+
+```sh
+pnpm docker:up
+```
+
+This runs `docker compose up --build -d`: it builds the image and starts the
+service in the background. In Docker Desktop, wait for the container to become
+**healthy** before connecting ChatGPT.
+
+### Add the MCP server to ChatGPT
+
+In ChatGPT, open **Plugins**, select **+**, then **Add custom MCP server**.
+Enter a name, such as **Intervals**, choose **Tunnel** under Connection and select
+your tunnel. Choose **No authentication** for this server; the tunnel handles
+access and the MCP server uses your local Intervals credentials.
+
+Select **Create as a plugin**, then install the
+resulting plugin in your personal or intended workspace. Custom MCP access also
+depends on workspace permissions and security restrictions. See
+[OpenAI's connection guide](https://developers.openai.com/api/docs/guides/custom-mcp-server)
+for the current interface and access requirements.
+
+### Select the plugin and verify a tool call
+
+Open a conversation in the same ChatGPT account/workspace, type `@` and select
+your installed **Intervals** plugin. For example, ask:
+
+> Use Intervals to list my completed activities from the past two weeks.
 
 ## What the server can do
 
@@ -74,21 +103,64 @@ publication without duplicate creation have been manually verified through ChatG
 | `preview_planned_workout`        | Validate a running or cycling workout and prepare a FIT draft for review.                        |
 | `publish_planned_workout`        | Publish the exact reviewed draft to the Intervals calendar after explicit user approval.         |
 
-Data-reading tools use the configured athlete's Intervals data. Workout publication
+Workout publication
 creates a calendar workout; existing events are not updated or deleted.
+
+## Session lifetime
+
+ChatGPT tools are unavailable while the container is stopped or the computer is
+asleep. Local development tools are available while the host's MCP process runs.
+
+Workout drafts and published-event results are held in process memory. Restarting or recreating the server loses them, so complete preview and publication in the same running process. Previously published calendar events remain in Intervals.
+If a write had an uncertain outcome, inspect the calendar before creating a new draft.
+
+## Development
+
+> [!NOTE]
+> Direct local execution requires only the Intervals settings in `.env`.
+> The `OPENAI_` variables and an OpenAI tunnel are not needed.
+
+Install dependencies from the repository root:
+
+```sh
+pnpm install
+```
+
+### Local development (example: VS Code and Copilot)
+
+For development, run the MCP server directly through an MCP host. VS Code with
+Copilot is one example; this path needs only the Intervals settings in `.env`.
+Create `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "intervals": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["--env-file=${workspaceFolder}/.env", "${workspaceFolder}/dist/src/index.js"]
+    }
+  }
+}
+```
+
+Build the server:
+
+```sh
+pnpm build
+```
+
+Open `.vscode/mcp.json` and start `intervals` using VS Code's MCP controls.
+Ask Copilot for your recent activities to verify the connection. After source
+changes, rebuild and restart the server. VS Code manages the process over stdio.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for component responsibilities, data flow,
 state management and verification strategy.
 
-## CI/CD
+### CI/CD
 
-- [QGate Verification](.github/workflows/pr-qgate.yml) validates pull requests.
-- [Release Engine](.github/workflows/release.yml) validates pushes to `main`, then
-  uses Release Please to prepare release PRs or publish merged releases.
-
-Workflow files define the automated checks. Commit hooks format and lint staged
-files and run type checks and tests. Script definitions live in
-[package.json](package.json).
-
-Use Conventional Commits: commitlint enforces the format, and Release Please uses
-the commit history to update the version and changelog.
+- **GitHub Actions:** [PR quality gates](.github/workflows/pr-qgate.yml) and
+  [main validation and releases](.github/workflows/release.yml).
+- **Release Please:** release PRs, versioning, changelog and GitHub releases.
+- **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
+- **commitlint:** Conventional Commits enforcement.

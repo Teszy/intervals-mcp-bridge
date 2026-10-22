@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.0.0...v1.1.0) (2026-10-22)
+
+
+### Features
+
+* add Docker runtime for ChatGPT access through Secure MCP Tunnel ([#26](https://github.com/Teszy/intervals-mcp-bridge/issues/26)) ([fdffdd6](https://github.com/Teszy/intervals-mcp-bridge/commit/fdffdd667e548cf9c31042ac9c42e9923d43de56))
+
 ## [1.0.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v0.9.0...v1.0.0) (2026-10-19)
 
 

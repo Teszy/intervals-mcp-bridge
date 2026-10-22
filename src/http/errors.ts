@@ -25,11 +25,11 @@ export class Forbidden extends HTTPError {
 }
 
 /** Response contract failure; retains no raw response or error cause. */
-export class APIResponseValidationError extends Error {
+export class HTTPResponseValidationError extends Error {
   readonly issues: ReadonlyArray<Pick<z.core.$ZodIssue, 'code' | 'path'>>;
   constructor(issues: readonly z.core.$ZodIssue[]) {
     super('API response does not match the expected schema.');
-    this.name = 'APIResponseValidationError';
+    this.name = 'HTTPResponseValidationError';
     // Messages and metadata can contain input values or custom secrets.
     this.issues = issues.map(({ code, path }) => ({ code, path: [...path] }));
   }

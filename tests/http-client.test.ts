@@ -1,19 +1,19 @@
 import { z } from 'zod';
 import axios, { AxiosError } from 'axios';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { APIClient } from '../src/api/client.js';
-import type { BasicAuth, BearerAuth } from '../src/api/types.js';
+import { HTTPClient } from '../src/http/client.js';
+import type { BasicAuth, BearerAuth } from '../src/http/types.js';
 import {
-  APIResponseValidationError,
+  HTTPResponseValidationError,
   Forbidden,
   HTTPError,
   Unauthorized,
-} from '../src/api/errors.js';
+} from '../src/http/errors.js';
 import { mockHttp } from './helpers/http.js';
 
 function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {
   const adapter = mockHttp(data, status);
-  const client = new APIClient(
+  const client = new HTTPClient(
     'https://api.example.com/v1',
     authToken === undefined ? undefined : { type: 'bearer', token: authToken },
   );
@@ -22,7 +22,7 @@ function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('APIClient', () => {
+describe('HTTPClient', () => {
   it('requests public endpoints with query parameters and returns response data', async () => {
     const { client, adapter } = setup();
     expect(await client.get('/public', z.unknown(), { page: 1, active: true })).toEqual({
@@ -52,7 +52,7 @@ describe('APIClient', () => {
   it('encodes Basic credentials and copies them at construction', async () => {
     const { adapter } = setup();
     const auth: BasicAuth = { type: 'basic', username: 'API_KEY', password: 'secret-key' };
-    const client = new APIClient('https://api.example.com', auth);
+    const client = new HTTPClient('https://api.example.com', auth);
     auth.password = 'changed';
     await client.get('', z.unknown());
     const headers = adapter.mock.calls[0]![0].headers;
@@ -65,7 +65,7 @@ describe('APIClient', () => {
   it('copies Bearer credentials at construction', async () => {
     const { adapter } = setup();
     const auth: BearerAuth = { type: 'bearer', token: 'original' };
-    const client = new APIClient('https://api.example.com', auth);
+    const client = new HTTPClient('https://api.example.com', auth);
     auth.token = 'changed';
     await client.get('', z.unknown());
     expect(adapter.mock.calls[0]![0].headers.get('Authorization')).toBe('Bearer original');
@@ -105,7 +105,7 @@ describe('APIClient', () => {
 
   it('supports default options and endpoint arguments', async () => {
     const { adapter } = setup();
-    const client = new APIClient('https://api.example.com');
+    const client = new HTTPClient('https://api.example.com');
     await client.get('', z.unknown());
     await client.post('', z.unknown());
     expect(adapter.mock.calls.map(([request]) => request.url)).toEqual(['', '']);
@@ -215,10 +215,10 @@ describe('API response validation', () => {
             ? client.post('/items', schema, {})
             : client.uploadFile('/files', schema, new FormData());
       const error: unknown = await operation.catch((error: unknown) => error);
-      expect(error).toBeInstanceOf(APIResponseValidationError);
+      expect(error).toBeInstanceOf(HTTPResponseValidationError);
       expect(error).not.toBeInstanceOf(HTTPError);
       expect(error).toMatchObject({
-        name: 'APIResponseValidationError',
+        name: 'HTTPResponseValidationError',
         issues: [{ code: 'invalid_type', path: ['count'] }],
       });
       expect(error).not.toHaveProperty('cause');

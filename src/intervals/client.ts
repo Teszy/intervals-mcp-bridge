@@ -1,6 +1,6 @@
-import { addZoneWarnings } from './athlete-settings.js';
-import { APIClient } from '../api/client.js';
-import type { BasicAuth } from '../api/types.js';
+import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
+import { HTTPClient } from '../http/client.js';
+import type { BasicAuth } from '../http/types.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from '../schemas/events.js';
@@ -35,7 +35,7 @@ export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js'
 
 export class IntervalsClient {
   readonly #config: IntervalsConfig;
-  readonly #api: APIClient;
+  readonly #http: HTTPClient;
 
   constructor(config: IntervalsConfig = loadIntervalsConfig()) {
     this.#config = { ...config };
@@ -44,7 +44,7 @@ export class IntervalsClient {
       username: 'API_KEY',
       password: this.#config.apiKey,
     };
-    this.#api = new APIClient(this.#config.baseURL, basicAuth);
+    this.#http = new HTTPClient(this.#config.baseURL, basicAuth);
   }
 
   /** Create a planned calendar workout from a validated FIT preview. No automatic retries. */
@@ -53,7 +53,7 @@ export class IntervalsClient {
     fit: Uint8Array,
     externalId: string,
   ): Promise<PlannedWorkoutEvent> {
-    return this.#api.post(
+    return this.#http.post(
       `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
       plannedWorkoutEventSchema,
       {
@@ -71,7 +71,7 @@ export class IntervalsClient {
   /** Fetch session workload in an inclusive athlete-local date range. */
   async getActivityWorkload(range: TrainingDateRange): Promise<ActivityWorkload[]> {
     const dates = trainingDateRangeSchema.parse(range);
-    return this.#api.get(
+    return this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activityWorkloadSchema),
       dates,
@@ -81,7 +81,7 @@ export class IntervalsClient {
   /** Fetch recorded daily wellness and upstream fitness values, without filling gaps. */
   async getWellness(range: TrainingDateRange): Promise<Wellness[]> {
     const dates = trainingDateRangeSchema.parse(range);
-    const records = await this.#api.get(
+    const records = await this.#http.get(
       `/athlete/${this.#config.athleteId}/wellness`,
       z.array(wellnessSchema),
       dates,
@@ -98,7 +98,7 @@ export class IntervalsClient {
 
   /** Fetch current settings, exposing only training context fields. */
   async getAthleteSettings(): Promise<AthleteSettings> {
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}`,
       athleteSettingsResponseSchema,
     );
@@ -117,7 +117,7 @@ export class IntervalsClient {
     const newest = new Date();
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - selection.data + 1);
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activitySummarySchema),
       {
@@ -134,7 +134,7 @@ export class IntervalsClient {
     const id = activityIdSchema.safeParse(activityId);
     if (!id.success) throw new Error('Invalid activity ID.');
 
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/activity/${encodeURIComponent(id.data)}`,
       activityDetailsSchema,
       {
@@ -158,7 +158,7 @@ export class IntervalsClient {
     if (!selection.success) throw new Error('Invalid activity stream selection.');
     const requestedTypes = [...new Set(selection.data)];
 
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/activity/${encodeURIComponent(id.data)}/streams.json`,
       activityStreamsResponseSchema,
       {

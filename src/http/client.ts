@@ -1,10 +1,10 @@
 import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
-import { APIResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
+import { HTTPResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
 import type { Auth, QueryParams } from './types.js';
 
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
-export class APIClient {
+export class HTTPClient {
   readonly #baseURL: string;
   readonly #auth: Auth | undefined;
 
@@ -56,7 +56,7 @@ export class APIClient {
 
   #validate<S extends z.ZodType>(data: unknown, schema: S): z.output<S> {
     const result = schema.safeParse(data);
-    if (!result.success) throw new APIResponseValidationError(result.error.issues);
+    if (!result.success) throw new HTTPResponseValidationError(result.error.issues);
     return result.data;
   }
 

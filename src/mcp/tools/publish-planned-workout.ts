@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsClient } from '../../intervals/client.js';
 
-import type { WorkoutDrafts } from '../../workouts/drafts.js';
+import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
 import { toolResult } from '../result.js';
 
 export function registerPublishPlannedWorkoutTool(

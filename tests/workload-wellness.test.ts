@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IntervalsClient } from '../src/intervals/client.js';
-import { APIResponseValidationError } from '../src/api/errors.js';
+import { HTTPResponseValidationError } from '../src/http/errors.js';
 import { mockHttp } from './helpers/http.js';
 
 const config = {
@@ -109,13 +109,13 @@ describe('workload and wellness client', () => {
   )('rejects malformed wellness data %j', async ({ records }) => {
     mockHttp(records);
     await expect(new IntervalsClient(config).getWellness(range)).rejects.toBeInstanceOf(
-      APIResponseValidationError,
+      HTTPResponseValidationError,
     );
   });
   it('rejects invalid load values', async () => {
     mockHttp([{ id: 'i42', icu_training_load: 'bad' }]);
     await expect(new IntervalsClient(config).getActivityWorkload(range)).rejects.toBeInstanceOf(
-      APIResponseValidationError,
+      HTTPResponseValidationError,
     );
   });
 });

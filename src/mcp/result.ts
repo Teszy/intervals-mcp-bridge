@@ -1,4 +1,4 @@
-import { HTTPError } from '../api/errors.js';
+import { HTTPError } from '../http/errors.js';
 
 /** Keep successful result formatting and sanitized errors consistent across tools. */
 export async function toolResult<T extends Record<string, unknown>>(

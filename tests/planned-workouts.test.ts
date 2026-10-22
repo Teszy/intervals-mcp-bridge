@@ -6,8 +6,8 @@ import {
   type PlannedWorkoutInput,
 } from '../src/schemas/workouts.js';
 import { IntervalsClient } from '../src/intervals/client.js';
-import { encodeWorkoutFit } from '../src/workouts/fit.js';
-import { WorkoutDrafts } from '../src/workouts/drafts.js';
+import { encodeWorkoutFit } from '../src/app/workouts/fit.js';
+import { WorkoutDrafts } from '../src/app/workouts/drafts.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { mockHttp } from './helpers/http.js';
 const config = {

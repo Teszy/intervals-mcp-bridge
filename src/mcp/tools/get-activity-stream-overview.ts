@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsClient } from '../../intervals/client.js';
 
-import { activityStreamUnits } from '../../schemas/streams.js';
+import { createActivityStreamOverview } from '../../app/activity-streams/overview.js';
 import { toolResult } from '../result.js';
 
 export function registerGetActivityStreamOverviewTool(
@@ -26,29 +26,9 @@ export function registerGetActivityStreamOverviewTool(
     ({ activityId, types, maxPoints, startTime, endTime }) =>
       toolResult(async () => {
         const data = await client.getActivityStreams(activityId, types);
-        const indices = data.time.flatMap((time, index) =>
-          time >= (startTime ?? 0) && (endTime === undefined || time <= endTime) ? [index] : [],
-        );
-        const sampled = indices.length > maxPoints;
-        const selected = sampled
-          ? Array.from(
-              { length: maxPoints },
-              (_, i) => indices[Math.floor((i * (indices.length - 1)) / (maxPoints - 1))]!,
-            )
-          : indices;
         return {
           activityId,
-          time: selected.map((index) => data.time[index]!),
-          streams: data.streams.map((stream) => ({
-            type: stream.type,
-            unit: activityStreamUnits[stream.type],
-            data: selected.map((index) => stream.data[index]!),
-          })),
-          missingStreams: data.missingStreams,
-          totalPoints: data.time.length,
-          windowPoints: indices.length,
-          returnedPoints: selected.length,
-          sampled,
+          ...createActivityStreamOverview(data, { maxPoints, startTime, endTime }),
         };
       }, 'Unable to retrieve valid activity streams. The data may be unavailable through the Intervals API.'),
   );

@@ -2,7 +2,7 @@ import {
   activityStreamUnits,
   type ActivityStreams,
   type ActivityStreamType,
-} from '../schemas/streams.js';
+} from '../../schemas/streams.js';
 
 export type ActivityStreamStatisticsOptions = {
   startTime?: number | undefined;

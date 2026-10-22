@@ -1,4 +1,4 @@
-import { WorkoutDrafts } from '../workouts/drafts.js';
+import { WorkoutDrafts } from '../app/workouts/drafts.js';
 import { registerPreviewPlannedWorkoutTool } from './tools/preview-planned-workout.js';
 import { registerPublishPlannedWorkoutTool } from './tools/publish-planned-workout.js';
 import { registerListActivityWorkloadTool } from './tools/list-activity-workload.js';

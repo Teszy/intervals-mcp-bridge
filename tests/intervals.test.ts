@@ -1,4 +1,4 @@
-import { APIResponseValidationError } from '../src/api/errors.js';
+import { HTTPResponseValidationError } from '../src/http/errors.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntervalsClient } from '../src/intervals/client.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
@@ -111,7 +111,7 @@ describe('IntervalsClient activity streams', () => {
   ])('rejects %s', async (_name, data) => {
     const operation = setup(data).client.getActivityStreams('i42');
     if (_name === 'malformed data') {
-      await expect(operation).rejects.toBeInstanceOf(APIResponseValidationError);
+      await expect(operation).rejects.toBeInstanceOf(HTTPResponseValidationError);
     } else {
       await expect(operation).rejects.toThrow('Intervals API');
     }

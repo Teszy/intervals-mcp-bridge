@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateActivityStreamStatistics } from '../src/intervals/activity-stream-statistics.js';
+import { calculateActivityStreamStatistics } from '../src/app/activity-streams/statistics.js';
 import type { ActivityStreams } from '../src/schemas/streams.js';
 
 function streams(time: number[], values: (number | null)[]): ActivityStreams {

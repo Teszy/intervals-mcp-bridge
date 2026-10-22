@@ -1,12 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { IntervalsClient } from '../intervals/client.js';
+import type { IntervalsClient } from '../../intervals/client.js';
 import {
   plannedWorkoutSchema,
   type PlannedWorkout,
   type PlannedWorkoutInput,
   type WorkoutDraftStatus,
-} from '../schemas/workouts.js';
-import type { PlannedWorkoutEvent } from '../schemas/events.js';
+} from '../../schemas/workouts.js';
+import type { PlannedWorkoutEvent } from '../../schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
 
 type Draft = {

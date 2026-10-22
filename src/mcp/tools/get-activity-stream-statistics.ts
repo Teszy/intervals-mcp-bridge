@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsClient } from '../../intervals/client.js';
 
-import { calculateActivityStreamStatistics } from '../../intervals/activity-stream-statistics.js';
+import { calculateActivityStreamStatistics } from '../../app/activity-streams/statistics.js';
 import { toolResult } from '../result.js';
 
 export function registerGetActivityStreamStatisticsTool(

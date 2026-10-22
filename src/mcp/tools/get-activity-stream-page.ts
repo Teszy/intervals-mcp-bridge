@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsClient } from '../../intervals/client.js';
 
-import { activityStreamUnits } from '../../schemas/streams.js';
+import { createActivityStreamPage } from '../../app/activity-streams/page.js';
 import { toolResult } from '../result.js';
 
 export function registerGetActivityStreamPageTool(
@@ -26,26 +26,9 @@ export function registerGetActivityStreamPageTool(
     ({ activityId, types, pageSize, offset, startTime, endTime }) =>
       toolResult(async () => {
         const data = await client.getActivityStreams(activityId, types);
-        const indices = data.time.flatMap((time, index) =>
-          time >= (startTime ?? 0) && (endTime === undefined || time <= endTime) ? [index] : [],
-        );
-        const selected = indices.slice(offset, offset + pageSize);
-        const hasMore = offset + selected.length < indices.length;
         return {
           activityId,
-          time: selected.map((index) => data.time[index]!),
-          streams: data.streams.map((stream) => ({
-            type: stream.type,
-            unit: activityStreamUnits[stream.type],
-            data: selected.map((index) => stream.data[index]!),
-          })),
-          missingStreams: data.missingStreams,
-          totalPoints: data.time.length,
-          windowPoints: indices.length,
-          returnedPoints: selected.length,
-          offset,
-          nextOffset: hasMore ? offset + selected.length : null,
-          hasMore,
+          ...createActivityStreamPage(data, { pageSize, offset, startTime, endTime }),
         };
       }, 'Unable to retrieve valid activity streams. The data may be unavailable through the Intervals API.'),
   );

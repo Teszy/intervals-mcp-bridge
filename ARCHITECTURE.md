@@ -6,100 +6,139 @@ workout becomes a controlled calendar write. MCP wire semantics and Intervals
 field definitions belong to their upstream documentation and the source contracts.
 See [README.md](README.md) for setup, supported tools and CI/CD.
 
-## Component map and host boundaries
+### ChatGPT through Docker and Secure MCP Tunnel
 
-The editable [draw.io diagram](docs/diagrams/architecture.drawio) shows the main
-participants and communication boundaries. Open it in diagrams.net or a draw.io
-editor. Box titles and descriptions are separate editable text objects attached
-to their box, with bold titles and centered descriptions matching the SVG preview.
-Export an updated SVG preview after editing.
+![ChatGPT through Docker and Secure MCP Tunnel](docs/diagrams/chatgpt-docker.svg)
 
-The grey frame is one running Node.js process. It contains our application and the
-third-party libraries it loads. Blue identifies our application code, purple
-identifies third-party libraries, and green identifies external hosts/services.
-Connections show communication or library calls, with results returning along the
-same path. They do not prescribe execution order or expose individual tool paths.
+ChatGPT sends MCP requests to OpenAI's Secure MCP Tunnel service. The local
+`tunnel-client` initiates outbound HTTPS polling with its OpenAI runtime key,
+retrieves requests and posts responses. The service does not open an inbound
+connection to the computer, and the container publishes no ports.
 
-![Bridge overview and external communication](docs/diagrams/components.svg)
+Docker Compose runs the tunnel client and bridge in one container. The tunnel
+client starts the compiled bridge as a separate Node.js child and exchanges MCP
+JSON-RPC messages over stdio. Compose's init process forwards signals and reaps
+exited children. The Docker boundary packages the processes together; the Node.js
+boundary contains the MCP SDK, bridge application and its loaded libraries.
 
-The bridge runs in Node.js with one configured athlete and API key per process.
-VS Code + Copilot and ChatGPT through Secure MCP Tunnel are verified host paths.
-The diagram abstracts the host connection: VS Code connects directly over stdio,
-while ChatGPT reaches the local stdio server through OpenAI's tunnel service and
-a separate local `tunnel-client` process. Both use the same compiled entry point.
-The relay is outside the bridge process, and the bridge has no public HTTP listener.
-The host manages the model and conversation; the bridge does not call a model API.
-The tunnel client's OpenAI runtime key is separate from the bridge's Intervals key.
+Compose reads the local `.env` for both components. OpenAI settings are mapped to
+the tunnel client's environment variables, while the file is mounted for the
+Node.js child to load its Intervals settings. The OpenAI runtime key authenticates
+the tunnel; the Intervals key authenticates API calls. Both processes can access
+the shared configuration, so this is not a credential isolation boundary.
+Credentials are supplied at runtime and excluded from the image and repository.
 
-The ChatGPT test confirmed draft continuity between preview and publication, and
-that repeating publication returned the stored event without a duplicate write.
-This verifies the tested session, not durability across process restarts or draft
-sharing between hosts. Setup instructions are in the
-[tunnel guide](docs/secure-mcp-tunnel.md).
+### Local development through an MCP host
+
+![Local development through a direct MCP host](docs/diagrams/local-development.svg)
+
+A local MCP host, such as VS Code with Copilot, starts the compiled bridge directly
+and exchanges MCP JSON-RPC messages over stdio. This path requires neither Docker
+nor a tunnel. The host manages model communication and the conversation; the
+bridge does not call a model API.
+
+Both launch modes use the same server code with one configured athlete and
+Intervals API key per process. Inside the bridge, the MCP SDK dispatches calls to
+the application. The application uses Zod for schema validation, Axios for HTTPS
+requests to Intervals.icu, and Garmin FIT SDK for workout encoding and verification.
+Only the Axios connection reaches the external Intervals API.
+
+Each launched bridge owns its own in-memory drafts and publication results.
+The Docker and local development processes cannot share draft IDs. Restarting
+either process loses its state.
+See [reviewed workout state](#reviewed-workout-state) for publication guarantees and
+[README](README.md#setup) for setup and startup instructions.
 
 ## Communication flow
 
-This sequence uses the same participants as the component map. It shows a typical
-tool interaction after startup. The supporting-library participant groups in-process
-Zod, Axios and Garmin SDK calls, not a separate service. Host/model exchanges are
-conceptual and managed by the host.
-For ChatGPT, host-to-SDK messages pass through the tunnel relay, with stdio on the
-local leg; the sequence groups that external relay into the host connection.
+This sequence documents the ChatGPT/Docker runtime. It focuses on the bridge's
+input contracts, upstream data processing and reviewed workout state. The tunnel
+and MCP SDK are shown only as the connection and dispatch path; their internal
+protocol behaviour is left to upstream documentation. Library operations are
+summarised inside the bridge rather than expanded into separate lifelines.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant H as MCP host
-    participant M as LLM / model provider
+    participant H as ChatGPT
+    participant R as Secure MCP Tunnel service
+    participant T as tunnel-client
     box Node.js process
         participant S as MCP SDK
         participant B as Bridge application
-        participant L as Supporting libraries
     end
     participant I as Intervals.icu API
-    H->>B: Launch compiled server with environment
-    B->>L: Validate configuration using Zod
-    L-->>B: Validated configuration
-    B->>S: Register tools and start stdio service
-    H->>S: Initialize connection and discover tools
-    S-->>H: Server capabilities and tool contracts
-    H->>M: User request and available tool contracts
-    M-->>H: Selected tool and arguments
-    Note over H,B: Publishing requires explicit approval of the exact preview in the host conversation
-    H->>S: tools/call over stdio
-    S->>S: Validate arguments against registered schema
-    S->>B: Invoke tool handler
-    B->>L: Apply application input contracts using Zod
-    L-->>B: Validated input
-    alt Operation needs upstream data or an approved calendar write
-        B->>L: Execute Intervals request through HTTP adapter
-        L->>I: Axios HTTPS GET or POST with API key
-        I-->>L: Response or HTTP failure
-        L->>L: Validate response using Zod or sanitize HTTP failure
-        L-->>B: Curated data or controlled exception
-        B->>B: Enforce domain checks and process data or update draft state
-    else Local workout preview
-        B->>L: Encode and decode-verify FIT using Garmin SDK
-        L-->>B: Verified FIT bytes
-        B->>B: Store reviewed workout and bytes under draft ID
+
+    T->>B: Start compiled Node.js server with environment
+    B->>B: Validate configuration and construct client and session state
+    B->>S: Register tools and serve over stdio
+    Note over H,S: Tool discovery uses this same connection path
+    Note over R,T: The running client polls over outbound HTTPS and posts responses
+
+    loop Each selected tool call
+        H->>R: MCP tool request
+        R-->>T: Deliver request through client polling
+        T->>S: JSON-RPC over stdio
+        S->>B: Dispatch call after SDK input validation
+
+        alt Read athlete data or analyse activity streams
+            B->>I: HTTPS GET through Intervals adapter and Axios
+            I-->>B: HTTP response or request failure
+            alt Successful HTTP response
+                B->>B: Validate response schema and domain consistency
+                B->>B: Curate data or compute requested stream analysis
+            else Request failure
+                B->>B: Map HTTP failure to a sanitized error
+            end
+        else Preview planned workout
+            B->>B: Validate workout and reuse identical draft if present
+            opt New draft within session capacity
+                B->>B: Encode and verify FIT with Garmin SDK
+                B->>B: Store exact workout and FIT bytes under draft ID
+            end
+            Note over H,B: Return preview for review. Publication requires a separate call after explicit user approval.
+        else Publish planned workout with approved=true
+            B->>B: Look up draft in this server session
+            alt Draft already published
+                B->>B: Return stored event without another API request
+            else Draft ready for publication
+                B->>B: Set state to publishing
+                B->>I: HTTPS POST stored FIT bytes through adapter and Axios
+                I-->>B: HTTP response or request failure
+                alt Successful response with valid event schema
+                    B->>B: Store event and set state to published
+                else Request failure or invalid event response
+                    B->>B: Set state to unknown and block blind retries
+                end
+            else Draft missing, publishing or outcome unknown
+                B->>B: Reject publication without an API request
+            end
+        end
+
+        B->>B: Format success or map failure to a controlled tool error
+        B-->>S: Structured content and JSON text, or isError result
+        S-->>T: JSON-RPC tool response over stdio
+        T->>R: Post response over outbound HTTPS
+        R-->>H: MCP tool response
     end
-    B->>B: Format successful data or a controlled tool error
-    B-->>S: Structured content and JSON text, or isError result
-    S-->>H: MCP tool response over stdio
-    H->>M: Tool result for interpretation
-    M-->>H: Answer or another tool request
 ```
 
-Tool selection and interpretation happen in the host/model interaction. The bridge
-executes explicit calls against the configured athlete. The SDK rejects invalid
-arguments before invoking a handler. Configuration failures stop startup, and
-application failures are mapped to controlled tool errors. The diagram shows the
-normal startup and accepted-call path rather than every validation branch.
+The arrows to Intervals summarise calls through our HTTP adapter and Axios, not
+a direct network implementation in the tool handlers. Successful HTTP responses
+are schema-validated with Zod before domain checks and analysis. Validation or
+processing failures return controlled errors; they do not continue as successful
+data. A tool may require several upstream reads; the diagram groups that work
+into one interaction. SDK-rejected inputs never reach the handler.
 
-A preview is local and performs no Intervals write. Publication is a separate
-call using the reviewed draft. Repeating a successful publication can return its
-stored result without another HTTP request. A host may make several tool calls
-before answering the user.
+Preview and publication are separate calls. ChatGPT presents the preview and
+obtains approval for that exact draft before requesting publication. The server
+checks the approval argument and draft state; it cannot inspect conversation
+consent. A failed publication attempt has an uncertain outcome because the event
+may already exist upstream, so the server blocks automatic retries.
+
+For local development, the MCP host starts the same bridge directly and exchanges
+stdio messages with the SDK. The tunnel participants are absent; application
+processing and session-state rules remain the same.
 
 ## Composition and ownership
 
@@ -163,6 +202,11 @@ register a tool using the shared result adapter. Keep calculations independent o
 transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.
+
+Container smoke checks exercise the compiled stdio entry point and FIT workflow
+against a mock Intervals API. A separate mock control-plane check exercises the
+actual tunnel binary's startup, readiness and graceful shutdown. These checks do
+not replace a live ChatGPT read and approved publication acceptance test.
 
 Update the diagrams when responsibilities, dependencies, transport or state
 ownership change. Leave detailed field rules in schemas/tool descriptions and CI

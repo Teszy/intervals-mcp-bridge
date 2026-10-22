@@ -1,0 +1,16 @@
+services:
+  intervals:
+    image: ${MCP_IMAGE:-intervals-mcp-bridge:local}
+    build:
+      context: .
+    init: true
+    environment:
+      CONTROL_PLANE_TUNNEL_ID: ${OPENAI_TUNNEL_ID:?Set OPENAI_TUNNEL_ID in .env}
+      CONTROL_PLANE_API_KEY: ${OPENAI_TUNNEL_API_KEY:?Set OPENAI_TUNNEL_API_KEY in .env}
+    secrets:
+      - intervals_env
+    stop_grace_period: 30s
+
+secrets:
+  intervals_env:
+    file: ${INTERVALS_ENV_FILE:-.env}

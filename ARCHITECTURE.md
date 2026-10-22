@@ -142,12 +142,29 @@ processing and session-state rules remain the same.
 
 ## Composition and ownership
 
-| Responsibility                | Code and architectural purpose                                                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Composition and configuration | Entry point and server factory construct the configured client, tool registry and session state.                                          |
-| MCP interface                 | Tool adapters and the shared result adapter translate MCP calls into application operations and return curated data or controlled errors. |
-| Application logic             | Stream analysis and reviewed workout drafts provide the behavior specific to this bridge. The sections below explain their constraints.   |
-| Intervals integration         | The Intervals client and HTTP adapter isolate upstream endpoints, authentication, response validation and consistency checks.             |
+The repository separates runtime code, deployment configuration, verification
+and documentation:
+
+| Folder    | Responsibility and reason for separation                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`    | Runtime application code, divided into the responsibilities below.                                                                                                     |
+| `docker/` | Container support configuration, including the Secure MCP Tunnel configuration. The root `Dockerfile` and `compose.yaml` define image construction and service wiring. |
+| `tests/`  | Automated checks, fixtures and HTTP mocks. Verifies application behavior and integration contracts without live credentials.                                           |
+| `docs/`   | Supporting documentation assets, including architecture diagram sources and exported diagrams.                                                                         |
+
+Within `src/`, folders separate application behavior, external integration,
+protocol handling and data contracts:
+
+| Folder           | Responsibility and reason for separation                                                                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`       | Bridge-specific behavior, grouped by feature: stream processing, zone warnings and workout workflows. Keeps these operations independent of MCP registration; feature-specific helpers such as FIT encoding stay beside their workflow. |
+| `src/http/`      | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                                      |
+| `src/intervals/` | Intervals integration: configuration, endpoints, request mapping and response consistency checks. Hides upstream API details from tool handlers.                                                                                        |
+| `src/mcp/`       | MCP server composition, tool registration and result formatting. Connects client calls and application operations to the protocol.                                                                                                      |
+| `src/schemas/`   | Shared data contracts and their derived TypeScript types. MCP-specific contracts live under `mcp/`, with individual tool contracts under `mcp/tools/`; configuration validation stays with its loader.                                  |
+
+`src/index.ts` starts the stdio server and handles process shutdown. The server
+factory constructs the client, registers tools and owns session-scoped state.
 
 The MCP SDK supplies transport and dispatch. Supporting libraries supply schema
 validation (Zod), HTTP execution (Axios) and FIT encoding/decoding (Garmin SDK).

@@ -162,7 +162,9 @@ including HTTP and tool-side processing. Known HTTP errors retain their sanitize
 message, while other exceptions use a fixed tool-specific message. Credentials,
 raw responses and arbitrary exception details do not reach the model.
 
-Response schemas select exposed fields. The Intervals client then enforces domain
+The MCP SDK validates tool inputs, and the HTTP adapter validates upstream
+responses before application processing. Response schemas select exposed fields.
+The Intervals client then enforces domain
 consistency, such as athlete identity, wellness date integrity and stream alignment.
 Missing observations remain absent or null. Wellness fitness/fatigue values come
 from Intervals rather than a fitness or medical-readiness model calculated here.

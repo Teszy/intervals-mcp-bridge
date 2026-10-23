@@ -171,7 +171,7 @@ describe('HTTPClient', () => {
     });
     expect(error).not.toHaveProperty('config');
     expect(error).not.toHaveProperty('response');
-    expect(error).not.toHaveProperty('cause');
+    expect(error).toHaveProperty('cause');
     expect(String(error)).not.toContain('secret');
   });
 
@@ -181,10 +181,13 @@ describe('HTTPClient', () => {
   ])('sanitizes network errors', async (error) => {
     const { client, adapter } = setup();
     adapter.mockRejectedValue(error);
-    await expect(client.uploadFile('/files', z.unknown(), new FormData())).rejects.toMatchObject({
+    const request = client.uploadFile('/files', z.unknown(), new FormData());
+    await expect(request).rejects.toMatchObject({
       name: 'HTTPError',
       message: 'HTTP request failed: network error or timeout.',
     });
+    await expect(request).rejects.toHaveProperty('cause', error);
+    await expect(request).rejects.toHaveProperty('cause.stack', error.stack);
   });
 });
 
@@ -223,7 +226,7 @@ describe('API response validation', () => {
       expect(error).toMatchObject({
         name: 'UpstreamDataError',
       });
-      expect(error).not.toHaveProperty('cause');
+      expect(error).toHaveProperty('cause.issues');
       expect(error).not.toHaveProperty('response');
       expect(JSON.stringify(error)).not.toContain('secret');
       expect(String(error)).not.toContain('secret');

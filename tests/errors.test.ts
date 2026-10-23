@@ -47,7 +47,8 @@ describe('central error boundary', () => {
     );
     const sanitized: unknown = await operation.catch((caught: unknown) => caught);
     expect(sanitized).not.toBe(error);
-    expect(sanitized).not.toHaveProperty('cause');
+    expect(sanitized).toHaveProperty('cause', error);
+    if (error instanceof Error) expect(sanitized).toHaveProperty('cause.stack', error.stack);
     expect(String(sanitized)).not.toContain('secret');
   });
 

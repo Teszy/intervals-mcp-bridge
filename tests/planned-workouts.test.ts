@@ -1,3 +1,4 @@
+import { toolResult } from '../src/mcp/result.js';
 import { WorkoutError } from '../src/errors.js';
 import { Decoder, Stream } from '@garmin/fitsdk';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
@@ -205,7 +206,9 @@ describe('workout draft publication', () => {
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
     const client = new IntervalsClient(config);
-    await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
+    const publication = toolResult(async () => drafts.publish(draftId, client));
+    await expect(publication).rejects.toThrow('uncertain');
+    await expect(publication).rejects.toHaveProperty('cause');
     await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
     expect(drafts.preview(plannedWorkout).status).toBe('unknown');
     expect(adapter).toHaveBeenCalledTimes(1);

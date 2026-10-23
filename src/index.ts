@@ -1,18 +1,14 @@
 import { AppError } from './errors.js';
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { startStdioServer } from './mcp/stdio.js';
 import { loadIntervalsConfig } from './intervals/config.js';
 import { createServer } from './mcp/server.js';
 
 try {
   const config = loadIntervalsConfig();
-  const handle = serveStdio(() => createServer(config), {
-    onerror: () => console.error('MCP transport error.'),
-  });
+  const handle = startStdioServer(() => createServer(config));
   const shutdown = () => {
-    void handle.close().catch(() => {
-      console.error('Unable to close MCP transport.');
-      process.exitCode = 1;
-    });
+    // The lifecycle wrapper has already marked and reported any close failure.
+    void handle.close().catch(() => {});
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);

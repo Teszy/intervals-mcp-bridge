@@ -1,3 +1,4 @@
+import { parseWithError } from '../validation.js';
 import { HTTPError, UpstreamDataError } from '../errors.js';
 import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
@@ -26,7 +27,12 @@ export class HTTPClient {
       });
       return response.data;
     });
-    return this.#validate(dataResult, schema);
+    return parseWithError(
+      schema,
+      dataResult,
+      (cause) =>
+        new UpstreamDataError('API response does not match the expected schema.', { cause }),
+    );
   }
 
   async post<S extends z.ZodType>(
@@ -41,7 +47,12 @@ export class HTTPClient {
       });
       return response.data;
     });
-    return this.#validate(dataResult, schema);
+    return parseWithError(
+      schema,
+      dataResult,
+      (cause) =>
+        new UpstreamDataError('API response does not match the expected schema.', { cause }),
+    );
   }
 
   async uploadFile<S extends z.ZodType>(
@@ -52,13 +63,6 @@ export class HTTPClient {
   ): Promise<z.output<S>> {
     // Axios supplies multipart headers, including the boundary, for FormData.
     return this.post(endpoint, schema, formData, signal);
-  }
-
-  #validate<S extends z.ZodType>(data: unknown, schema: S): z.output<S> {
-    const result = schema.safeParse(data);
-    if (!result.success)
-      throw new UpstreamDataError('API response does not match the expected schema.');
-    return result.data;
   }
 
   #createClient(): AxiosInstance {
@@ -83,9 +87,9 @@ export class HTTPClient {
     try {
       return await request(this.#createClient());
     } catch (error: unknown) {
-      // Axios errors contain credentials and response bodies; omit the original cause.
+      // Preserve the original failure internally; boundaries expose only the controlled message.
       if (!axios.isAxiosError(error)) throw error;
-      throw new HTTPError(error.response?.status);
+      throw new HTTPError(error.response?.status, { cause: error });
     }
   }
 }

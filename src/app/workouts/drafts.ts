@@ -1,3 +1,4 @@
+import { parseWithError } from '../../validation.js';
 import { WorkoutError, InputValidationError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { IntervalsClient } from '../../intervals/client.js';
@@ -23,12 +24,15 @@ export class WorkoutDrafts {
   readonly #byContent = new Map<string, string>();
 
   preview(input: PlannedWorkoutInput) {
-    const parsed = plannedWorkoutSchema.safeParse(input);
-    if (!parsed.success)
-      throw new InputValidationError(
-        'Invalid workout. Check the supplied fields and supported values.',
-      );
-    const workout = parsed.data;
+    const workout = parseWithError(
+      plannedWorkoutSchema,
+      input,
+      (cause) =>
+        new InputValidationError(
+          'Invalid workout. Check the supplied fields and supported values.',
+          { cause },
+        ),
+    );
     const contentHash = createHash('sha256').update(JSON.stringify(workout)).digest('hex');
     let draftId = this.#byContent.get(contentHash);
     if (!draftId) {
@@ -86,11 +90,12 @@ export class WorkoutDrafts {
       draft.event = event;
       draft.status = 'published';
       return { draftId, event };
-    } catch {
+    } catch (error: unknown) {
       // A timeout or invalid response can occur after upstream creation; never retry blindly.
       draft.status = 'unknown';
       throw new WorkoutError(
         'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
+        { cause: error },
       );
     }
   }

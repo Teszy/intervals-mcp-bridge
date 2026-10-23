@@ -217,6 +217,18 @@ describe('MCP recent activities tool', () => {
     expect(JSON.stringify(response)).not.toContain('secret');
   });
 
+  it('keeps SDK output validation errors separate and excludes malformed output values', async () => {
+    vi.spyOn(IntervalsClient.prototype, 'getRecentActivities').mockResolvedValue([
+      { id: 'i42', moving_time: 'private-output-value' },
+    ] as unknown as Awaited<ReturnType<IntervalsClient['getRecentActivities']>>);
+    const request = await connect();
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).toContain('Output validation error');
+    expect(JSON.stringify(response)).not.toContain('private-output-value');
+    expect(response).not.toHaveProperty('result.structuredContent');
+  });
+
   it('reports invalid upstream data without exposing its contents', async () => {
     mockHttp([{ name: 'private activity without id' }]);
     const request = await connect();

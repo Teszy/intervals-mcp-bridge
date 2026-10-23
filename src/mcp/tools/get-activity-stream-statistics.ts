@@ -24,17 +24,14 @@ export function registerGetActivityStreamStatisticsTool(
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     ({ activityId, types, startTime, endTime, maxGapSeconds, zones }) =>
-      toolResult(
-        async () => ({
-          activityId,
-          ...calculateActivityStreamStatistics(await client.getActivityStreams(activityId, types), {
-            startTime,
-            endTime,
-            maxGapSeconds,
-            zones,
-          }),
+      toolResult(async () => ({
+        activityId,
+        ...calculateActivityStreamStatistics(await client.getActivityStreams(activityId, types), {
+          startTime,
+          endTime,
+          maxGapSeconds,
+          zones,
         }),
-        'Unable to calculate valid stream statistics. The data may be unavailable through the Intervals API.',
-      ),
+      })),
   );
 }

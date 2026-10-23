@@ -1,3 +1,4 @@
+import { ConfigurationError } from '../errors.js';
 import { z } from 'zod';
 
 const intervalsConfigSchema = z.object({
@@ -23,7 +24,7 @@ export function loadIntervalsConfig(env: NodeJS.ProcessEnv = process.env): Inter
     baseURL: env.INTERVALS_BASE_URL,
   });
   if (!result.success) {
-    throw new Error(
+    throw new ConfigurationError(
       'Invalid Intervals configuration: provide an API key, a valid athlete ID, and an HTTP or HTTPS INTERVALS_BASE_URL.',
     );
   }

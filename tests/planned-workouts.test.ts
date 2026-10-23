@@ -1,3 +1,4 @@
+import { WorkoutError } from '../src/errors.js';
 import { Decoder, Stream } from '@garmin/fitsdk';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
@@ -194,7 +195,7 @@ describe('workout draft publication', () => {
     const { draftId } = drafts.preview(plannedWorkout);
     const client = new IntervalsClient(config);
     const first = drafts.publish(draftId, client);
-    await expect(drafts.publish(draftId, client)).rejects.toThrow('in progress');
+    await expect(drafts.publish(draftId, client)).rejects.toBeInstanceOf(WorkoutError);
     finish();
     await first;
     expect(adapter).toHaveBeenCalledTimes(1);

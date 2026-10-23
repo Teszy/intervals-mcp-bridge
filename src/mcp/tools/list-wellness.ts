@@ -20,9 +20,10 @@ export function registerListWellnessTool(server: McpServer, client: IntervalsCli
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     ({ oldest, newest }) =>
-      toolResult(
-        async () => ({ oldest, newest, wellness: await client.getWellness({ oldest, newest }) }),
-        'Unable to retrieve valid wellness records. The data may be unavailable through the Intervals API.',
-      ),
+      toolResult(async () => ({
+        oldest,
+        newest,
+        wellness: await client.getWellness({ oldest, newest }),
+      })),
   );
 }

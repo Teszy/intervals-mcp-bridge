@@ -1,14 +1,9 @@
+import { HTTPError, UpstreamDataError } from '../src/errors.js';
 import { z } from 'zod';
 import axios, { AxiosError } from 'axios';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { HTTPClient } from '../src/http/client.js';
 import type { BasicAuth, BearerAuth } from '../src/http/types.js';
-import {
-  HTTPResponseValidationError,
-  Forbidden,
-  HTTPError,
-  Unauthorized,
-} from '../src/http/errors.js';
 import { mockHttp } from './helpers/http.js';
 
 function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {
@@ -161,8 +156,8 @@ describe('HTTPClient', () => {
 
   it.each([
     [302, HTTPError],
-    [401, Unauthorized],
-    [403, Forbidden],
+    [401, HTTPError],
+    [403, HTTPError],
     [429, HTTPError],
     [500, HTTPError],
   ] as const)('maps HTTP %s to a typed Error subclass', async (status, ErrorType) => {
@@ -181,16 +176,24 @@ describe('HTTPClient', () => {
   });
 
   it.each([
-    new Error('secret-token'),
     new AxiosError('secret-token', 'ERR_NETWORK'),
     new AxiosError('secret-token', 'ECONNABORTED'),
-  ])('sanitizes network and unexpected errors', async (error) => {
+  ])('sanitizes network errors', async (error) => {
     const { client, adapter } = setup();
     adapter.mockRejectedValue(error);
     await expect(client.uploadFile('/files', z.unknown(), new FormData())).rejects.toMatchObject({
       name: 'HTTPError',
       message: 'HTTP request failed: network error or timeout.',
     });
+  });
+});
+
+describe('unexpected HTTP failures', () => {
+  it('preserves unexpected exceptions for the boundary to classify as internal errors', async () => {
+    const { client, adapter } = setup();
+    const error = new TypeError('private diagnostic');
+    adapter.mockRejectedValue(error);
+    await expect(client.get('/items', z.unknown())).rejects.toBe(error);
   });
 });
 
@@ -215,11 +218,10 @@ describe('API response validation', () => {
             ? client.post('/items', schema, {})
             : client.uploadFile('/files', schema, new FormData());
       const error: unknown = await operation.catch((error: unknown) => error);
-      expect(error).toBeInstanceOf(HTTPResponseValidationError);
+      expect(error).toBeInstanceOf(UpstreamDataError);
       expect(error).not.toBeInstanceOf(HTTPError);
       expect(error).toMatchObject({
-        name: 'HTTPResponseValidationError',
-        issues: [{ code: 'invalid_type', path: ['count'] }],
+        name: 'UpstreamDataError',
       });
       expect(error).not.toHaveProperty('cause');
       expect(error).not.toHaveProperty('response');
@@ -232,7 +234,8 @@ describe('API response validation', () => {
     const { client } = setup('secret value');
     const schema = z.string().refine(() => false, 'private diagnostic');
     const error: unknown = await client.get('/items', schema).catch((error: unknown) => error);
-    expect(error).toMatchObject({ issues: [{ code: 'custom', path: [] }] });
+    expect(error).toBeInstanceOf(UpstreamDataError);
+    expect(error).not.toHaveProperty('issues');
     expect(JSON.stringify(error)).not.toContain('private');
     expect(JSON.stringify(error)).not.toContain('secret');
   });
@@ -240,7 +243,7 @@ describe('API response validation', () => {
   it('keeps transport failures distinct even with a response schema', async () => {
     const { client } = setup({ count: 'invalid' }, 403);
     await expect(client.get('/items', z.object({ count: z.number() }))).rejects.toBeInstanceOf(
-      Forbidden,
+      HTTPError,
     );
   });
 });

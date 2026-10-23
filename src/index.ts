@@ -1,3 +1,4 @@
+import { AppError } from './errors.js';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { loadIntervalsConfig } from './intervals/config.js';
 import { createServer } from './mcp/server.js';
@@ -15,7 +16,8 @@ try {
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
-} catch {
-  console.error('Unable to start MCP server. Check the Intervals environment configuration.');
+} catch (error: unknown) {
+  const message = error instanceof AppError ? error.message : 'Unexpected internal error.';
+  console.error(`Unable to start MCP server: ${message}`);
   process.exitCode = 1;
 }

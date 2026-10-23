@@ -19,10 +19,6 @@ export function registerListRecentActivitiesTool(server: McpServer, client: Inte
       outputSchema: listRecentActivitiesOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ days }) =>
-      toolResult(
-        async () => ({ activities: await client.getRecentActivities(days) }),
-        'Unable to retrieve valid Intervals activities.',
-      ),
+    ({ days }) => toolResult(async () => ({ activities: await client.getRecentActivities(days) })),
   );
 }

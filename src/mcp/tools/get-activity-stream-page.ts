@@ -30,6 +30,6 @@ export function registerGetActivityStreamPageTool(
           activityId,
           ...createActivityStreamPage(data, { pageSize, offset, startTime, endTime }),
         };
-      }, 'Unable to retrieve valid activity streams. The data may be unavailable through the Intervals API.'),
+      }),
   );
 }

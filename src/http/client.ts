@@ -1,6 +1,6 @@
+import { HTTPError, UpstreamDataError } from '../errors.js';
 import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
-import { HTTPResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
 import type { Auth, QueryParams } from './types.js';
 
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
@@ -56,7 +56,8 @@ export class HTTPClient {
 
   #validate<S extends z.ZodType>(data: unknown, schema: S): z.output<S> {
     const result = schema.safeParse(data);
-    if (!result.success) throw new HTTPResponseValidationError(result.error.issues);
+    if (!result.success)
+      throw new UpstreamDataError('API response does not match the expected schema.');
     return result.data;
   }
 
@@ -83,16 +84,8 @@ export class HTTPClient {
       return await request(this.#createClient());
     } catch (error: unknown) {
       // Axios errors contain credentials and response bodies; omit the original cause.
-      throw this.#handleError(error);
+      if (!axios.isAxiosError(error)) throw error;
+      throw new HTTPError(error.response?.status);
     }
-  }
-
-  #handleError(error: unknown): HTTPError {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    if (status === 401) return new Unauthorized();
-    if (status === 403) return new Forbidden();
-    return status === undefined
-      ? new HTTPError()
-      : new HTTPError(`HTTP request failed (HTTP ${status}).`, status);
   }
 }

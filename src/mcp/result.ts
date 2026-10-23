@@ -1,10 +1,7 @@
-import { HTTPError } from '../http/errors.js';
+import { AppError } from '../errors.js';
 
 /** Keep successful result formatting and sanitized errors consistent across tools. */
-export async function toolResult<T extends Record<string, unknown>>(
-  operation: () => Promise<T>,
-  errorMessage: string,
-) {
+export async function toolResult<T extends Record<string, unknown>>(operation: () => Promise<T>) {
   try {
     const output = await operation();
     return {
@@ -12,7 +9,8 @@ export async function toolResult<T extends Record<string, unknown>>(
       structuredContent: output,
     };
   } catch (error: unknown) {
-    const message = error instanceof HTTPError ? error.message : errorMessage;
-    return { isError: true, content: [{ type: 'text' as const, text: message }] };
+    if (error instanceof AppError) throw error;
+    // eslint-disable-next-line preserve-caught-error -- The public error must not retain sensitive library errors as its cause.
+    throw new Error('Unable to complete the operation due to an internal error.');
   }
 }

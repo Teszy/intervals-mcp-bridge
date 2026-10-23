@@ -18,10 +18,6 @@ export function registerPreviewPlannedWorkoutTool(server: McpServer, drafts: Wor
       outputSchema: previewPlannedWorkoutOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    ({ workout }) =>
-      toolResult(
-        async () => drafts.preview(workout),
-        'Unable to generate a valid FIT workout preview. Check supported steps and targets; a session supports at most 100 distinct drafts.',
-      ),
+    ({ workout }) => toolResult(async () => drafts.preview(workout)),
   );
 }

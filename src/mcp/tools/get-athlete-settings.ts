@@ -19,10 +19,6 @@ export function registerGetAthleteSettingsTool(server: McpServer, client: Interv
       outputSchema: getAthleteSettingsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    () =>
-      toolResult(
-        async () => ({ settings: await client.getAthleteSettings() }),
-        'Unable to retrieve valid athlete settings. The settings may be unavailable through the Intervals API.',
-      ),
+    () => toolResult(async () => ({ settings: await client.getAthleteSettings() })),
   );
 }

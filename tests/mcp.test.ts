@@ -1,3 +1,4 @@
+import { IntervalsClient } from '../src/intervals/client.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -199,6 +200,23 @@ describe('MCP recent activities tool', () => {
     expect(JSON.stringify(response)).not.toContain('test-secret');
   });
 
+  it('lets the SDK format sanitized unexpected handler exceptions as tool errors', async () => {
+    vi.spyOn(IntervalsClient.prototype, 'getRecentActivities').mockRejectedValue(
+      new TypeError('secret diagnostic'),
+    );
+    const request = await connect();
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    expect(response).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { type: 'text', text: 'Unable to complete the operation due to an internal error.' },
+        ],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret');
+  });
+
   it('reports invalid upstream data without exposing its contents', async () => {
     mockHttp([{ name: 'private activity without id' }]);
     const request = await connect();
@@ -207,7 +225,7 @@ describe('MCP recent activities tool', () => {
     ).toMatchObject({
       result: {
         isError: true,
-        content: [{ type: 'text', text: 'Unable to retrieve valid Intervals activities.' }],
+        content: [{ type: 'text', text: 'API response does not match the expected schema.' }],
       },
     });
   });
@@ -458,7 +476,7 @@ describe('MCP activity details tool', () => {
         content: [
           {
             type: 'text',
-            text: 'Unable to retrieve valid activity details. The activity may be unavailable through the Intervals API.',
+            text: 'API response does not match the expected schema.',
           },
         ],
       },
@@ -771,7 +789,17 @@ describe('MCP planned workouts', () => {
         name: 'publish_planned_workout',
         arguments: { draftId: '00000000-0000-4000-8000-000000000000', approved: true },
       }),
-    ).toHaveProperty('result.isError', true);
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: 'Unknown draft; generate and review a preview in this server session first.',
+          },
+        ],
+      },
+    });
     expect(adapter).not.toHaveBeenCalled();
   });
   it('rejects unsupported preview steps before HTTP', async () => {
@@ -802,7 +830,7 @@ describe('MCP planned workouts', () => {
       });
       expect(published).toHaveProperty('result.isError', true);
       expect(JSON.stringify(published)).not.toContain('upstream private data');
-      expect(JSON.stringify(published)).toContain('inspect the Intervals calendar');
+      expect(JSON.stringify(published)).toContain('Inspect the Intervals calendar');
     }
     expect(adapter).toHaveBeenCalledTimes(1);
   });

@@ -1,3 +1,4 @@
+import { WorkoutError, InputValidationError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { IntervalsClient } from '../../intervals/client.js';
 import {
@@ -22,12 +23,17 @@ export class WorkoutDrafts {
   readonly #byContent = new Map<string, string>();
 
   preview(input: PlannedWorkoutInput) {
-    const workout = plannedWorkoutSchema.parse(input);
+    const parsed = plannedWorkoutSchema.safeParse(input);
+    if (!parsed.success)
+      throw new InputValidationError(
+        'Invalid workout. Check the supplied fields and supported values.',
+      );
+    const workout = parsed.data;
     const contentHash = createHash('sha256').update(JSON.stringify(workout)).digest('hex');
     let draftId = this.#byContent.get(contentHash);
     if (!draftId) {
       if (this.#drafts.size >= 100)
-        throw new Error('Draft capacity reached; restart the server to create more drafts.');
+        throw new WorkoutError('Draft capacity reached; restart the server to create more drafts.');
       const fit = encodeWorkoutFit(workout);
       draftId = randomUUID();
       this.#drafts.set(draftId, { workout, fit, status: 'ready' });
@@ -58,11 +64,17 @@ export class WorkoutDrafts {
   async publish(draftId: string, client: IntervalsClient) {
     const draft = this.#drafts.get(draftId);
     if (!draft)
-      throw new Error('Unknown draft; generate and review a preview in this server session first.');
+      throw new WorkoutError(
+        'Unknown draft; generate and review a preview in this server session first.',
+      );
     if (draft.status === 'published') return { draftId, event: draft.event! };
-    if (draft.status !== 'ready')
-      throw new Error(
-        'Publication is in progress or uncertain. Inspect the Intervals calendar before taking further action.',
+    if (draft.status === 'publishing')
+      throw new WorkoutError(
+        'Publication is in progress. Wait for its result before taking further action.',
+      );
+    if (draft.status === 'unknown')
+      throw new WorkoutError(
+        'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
       );
     draft.status = 'publishing';
     try {
@@ -77,7 +89,7 @@ export class WorkoutDrafts {
     } catch {
       // A timeout or invalid response can occur after upstream creation; never retry blindly.
       draft.status = 'unknown';
-      throw new Error(
+      throw new WorkoutError(
         'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
       );
     }

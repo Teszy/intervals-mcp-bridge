@@ -20,13 +20,10 @@ export function registerListActivityWorkloadTool(server: McpServer, client: Inte
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     ({ oldest, newest }) =>
-      toolResult(
-        async () => ({
-          oldest,
-          newest,
-          activities: await client.getActivityWorkload({ oldest, newest }),
-        }),
-        'Unable to retrieve valid activity workload. The data may be unavailable through the Intervals API.',
-      ),
+      toolResult(async () => ({
+        oldest,
+        newest,
+        activities: await client.getActivityWorkload({ oldest, newest }),
+      })),
   );
 }

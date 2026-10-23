@@ -20,9 +20,6 @@ export function registerGetActivityDetailsTool(server: McpServer, client: Interv
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     ({ activityId }) =>
-      toolResult(
-        async () => ({ activity: await client.getActivity(activityId) }),
-        'Unable to retrieve valid activity details. The activity may be unavailable through the Intervals API.',
-      ),
+      toolResult(async () => ({ activity: await client.getActivity(activityId) })),
   );
 }

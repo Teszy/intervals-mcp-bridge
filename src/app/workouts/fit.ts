@@ -1,3 +1,4 @@
+import { WorkoutError } from '../../errors.js';
 import {
   Encoder,
   Decoder,
@@ -54,10 +55,10 @@ export function encodeWorkoutFit(workout: PlannedWorkout): Uint8Array {
   const bytes = encoder.close();
   const decoder = new Decoder(Stream.fromByteArray(bytes));
   if (!decoder.checkIntegrity())
-    throw new Error('Generated workout failed FIT integrity validation.');
+    throw new WorkoutError('Generated workout failed FIT integrity validation.');
   const decoded = decoder.read();
   if (decoded.errors.length || decoded.messages.workoutStepMesgs?.length !== workout.steps.length) {
-    throw new Error('Generated workout failed FIT message validation.');
+    throw new WorkoutError('Generated workout failed FIT message validation.');
   }
   return bytes;
 }

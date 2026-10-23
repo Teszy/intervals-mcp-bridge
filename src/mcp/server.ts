@@ -16,8 +16,9 @@ import { registerListRecentActivitiesTool } from './tools/list-recent-activities
 
 /** Build the tool registry without opening a transport or making API requests. */
 export function createServer(config: IntervalsConfig): McpServer {
-  const client = new IntervalsClient(config);
   const server = new McpServer({ name: packageInfo.name, version: packageInfo.version });
+  const client = new IntervalsClient(config);
+
   registerListRecentActivitiesTool(server, client);
   registerGetActivityDetailsTool(server, client);
   registerGetActivityStreamOverviewTool(server, client);
@@ -27,6 +28,7 @@ export function createServer(config: IntervalsConfig): McpServer {
   registerListActivityWorkloadTool(server, client);
   registerListWellnessTool(server, client);
   const drafts = new WorkoutDrafts();
+
   registerPreviewPlannedWorkoutTool(server, drafts);
   registerPublishPlannedWorkoutTool(server, client, drafts);
   return server;

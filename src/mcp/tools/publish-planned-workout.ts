@@ -29,10 +29,6 @@ export function registerPublishPlannedWorkoutTool(
         openWorldHint: true,
       },
     },
-    ({ draftId }) =>
-      toolResult(
-        async () => drafts.publish(draftId, client),
-        'Unable to confirm workout publication. Use a reviewed draft from this session; if a write was attempted, inspect the Intervals calendar before retrying or creating another draft.',
-      ),
+    ({ draftId }) => toolResult(async () => drafts.publish(draftId, client)),
   );
 }

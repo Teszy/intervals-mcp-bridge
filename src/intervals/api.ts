@@ -2,7 +2,7 @@ import { parseWithError } from '../validation.js';
 import { UpstreamDataError } from '../errors.js';
 import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
 import { HTTPClient } from '../http/client.js';
-import type { BasicAuth } from '../http/types.js';
+import type { BasicAuth } from '../http/auth.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
 import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from '../schemas/events.js';
@@ -33,7 +33,7 @@ export type { ActivityDetails, ActivitySummary } from '../schemas/activities.js'
 export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js';
 
 /** Internal adapter: callers validate inputs at the application boundary; responses are validated here. */
-export class IntervalsClient {
+export class IntervalsApi {
   readonly #config: IntervalsConfig;
   readonly #http: HTTPClient;
 

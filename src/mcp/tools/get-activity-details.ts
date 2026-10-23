@@ -4,11 +4,11 @@ import {
 } from '../../schemas/mcp/tools/get-activity-details.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 
 import { toolResult } from '../result.js';
 
-export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsClient): void {
+export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
     'get_activity_details',
     {

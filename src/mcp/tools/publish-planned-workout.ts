@@ -4,14 +4,14 @@ import {
 } from '../../schemas/mcp/tools/publish-planned-workout.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 
 import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
 import { toolResult } from '../result.js';
 
 export function registerPublishPlannedWorkoutTool(
   server: McpServer,
-  client: IntervalsClient,
+  client: IntervalsApi,
   drafts: WorkoutDrafts,
 ): void {
   server.registerTool(

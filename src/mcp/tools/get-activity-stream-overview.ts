@@ -4,14 +4,14 @@ import {
 } from '../../schemas/mcp/tools/get-activity-stream-overview.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 
 import { createActivityStreamOverview } from '../../app/activity-streams/overview.js';
 import { toolResult } from '../result.js';
 
 export function registerGetActivityStreamOverviewTool(
   server: McpServer,
-  client: IntervalsClient,
+  client: IntervalsApi,
 ): void {
   server.registerTool(
     'get_activity_stream_overview',

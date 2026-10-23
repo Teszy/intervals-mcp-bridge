@@ -7,7 +7,7 @@ import {
   type PlannedWorkout,
   type PlannedWorkoutInput,
 } from '../src/schemas/workouts.js';
-import { IntervalsClient } from '../src/intervals/client.js';
+import { IntervalsApi } from '../src/intervals/api.js';
 import { encodeWorkoutFit } from '../src/app/workouts/fit.js';
 import { WorkoutDrafts } from '../src/app/workouts/drafts.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
@@ -27,7 +27,7 @@ describe('FIT planned workouts', () => {
     expectTypeOf<Parameters<WorkoutDrafts['preview']>[0]>().toEqualTypeOf<PlannedWorkout>();
     expectTypeOf<Parameters<typeof encodeWorkoutFit>[0]>().toEqualTypeOf<PlannedWorkout>();
     expectTypeOf<
-      Parameters<IntervalsClient['publishPlannedWorkout']>[0]
+      Parameters<IntervalsApi['publishPlannedWorkout']>[0]
     >().toEqualTypeOf<PlannedWorkout>();
     expectTypeOf(plannedWorkoutSchema.parse(plannedWorkout)).toEqualTypeOf<PlannedWorkout>();
   });
@@ -153,7 +153,7 @@ describe('workout draft publication', () => {
     expect(drafts.preview(plannedWorkout).draftId).toBe(preview.draftId);
     // Mutating a returned preview must not alter the stored draft.
     preview.workout.name = 'Changed externally';
-    const client = new IntervalsClient(config);
+    const client = new IntervalsApi(config);
     expect(await drafts.publish(preview.draftId, client)).toEqual({
       draftId: preview.draftId,
       event: plannedEvent,
@@ -192,7 +192,7 @@ describe('workout draft publication', () => {
     const adapter = mockHttp(plannedEvent);
     const first = new WorkoutDrafts().preview(plannedWorkout);
     await expect(
-      new WorkoutDrafts().publish(first.draftId, new IntervalsClient(config)),
+      new WorkoutDrafts().publish(first.draftId, new IntervalsApi(config)),
     ).rejects.toThrow('Unknown draft');
     expect(adapter).not.toHaveBeenCalled();
   });
@@ -208,7 +208,7 @@ describe('workout draft publication', () => {
     });
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsClient(config);
+    const client = new IntervalsApi(config);
     const first = drafts.publish(draftId, client);
     await expect(drafts.publish(draftId, client)).rejects.toBeInstanceOf(WorkoutError);
     finish();
@@ -219,7 +219,7 @@ describe('workout draft publication', () => {
     const adapter = mockHttp({ private: 'secret' }, status);
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsClient(config);
+    const client = new IntervalsApi(config);
     const publication = toolResult(async () => drafts.publish(draftId, client));
     await expect(publication).rejects.toThrow('uncertain');
     await expect(publication).rejects.toHaveProperty('cause');

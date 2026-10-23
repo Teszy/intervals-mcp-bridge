@@ -1,6 +1,6 @@
 import { WorkoutError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 import type { PlannedWorkout, WorkoutDraftStatus } from '../../schemas/workouts.js';
 import type { PlannedWorkoutEvent } from '../../schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
@@ -52,7 +52,7 @@ export class WorkoutDrafts {
     };
   }
 
-  async publish(draftId: string, client: IntervalsClient) {
+  async publish(draftId: string, client: IntervalsApi) {
     const draft = this.#drafts.get(draftId);
     if (!draft)
       throw new WorkoutError(

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { IntervalsClient } from '../src/intervals/client.js';
+import { IntervalsApi } from '../src/intervals/api.js';
 import { mockHttp } from './helpers/http.js';
 
 const config = {
@@ -29,7 +29,7 @@ describe('athlete settings', () => {
         },
       ],
     });
-    const result = await new IntervalsClient(config).getAthleteSettings();
+    const result = await new IntervalsApi(config).getAthleteSettings();
     expect(adapter.mock.calls[0]![0].url).toBe('/athlete/i12345');
     expect(result.sportSettings[0]).toMatchObject({
       threshold_pace: 3.5,
@@ -41,7 +41,7 @@ describe('athlete settings', () => {
   });
   it('preserves missing settings and empty profiles', async () => {
     mockHttp({ id: 'i12345', sportSettings: [] });
-    expect(await new IntervalsClient(config).getAthleteSettings()).toEqual({
+    expect(await new IntervalsApi(config).getAthleteSettings()).toEqual({
       id: 'i12345',
       sportSettings: [],
     });
@@ -49,7 +49,7 @@ describe('athlete settings', () => {
   it('supports the authenticated-athlete alias', async () => {
     mockHttp({ id: 'i12345', sportSettings: [] });
     expect(
-      await new IntervalsClient({ ...config, athleteId: '0' }).getAthleteSettings(),
+      await new IntervalsApi({ ...config, athleteId: '0' }).getAthleteSettings(),
     ).toHaveProperty('id', 'i12345');
   });
   it('preserves a descending final rowing HR limit and warns without losing other settings', async () => {
@@ -68,7 +68,7 @@ describe('athlete settings', () => {
         },
       ],
     });
-    const result = await new IntervalsClient(config).getAthleteSettings();
+    const result = await new IntervalsApi(config).getAthleteSettings();
     expect(result.timezone).toBe('Europe/Budapest');
     expect(result.sportSettings[0]).toEqual(running);
     expect(result.sportSettings[1]).toMatchObject({
@@ -91,7 +91,7 @@ describe('athlete settings', () => {
           id: 'i12345',
           sportSettings: [{ id: 1, types: ['Run'], [field]: limits, ftp: 250 }],
         });
-        const result = await new IntervalsClient(config).getAthleteSettings();
+        const result = await new IntervalsApi(config).getAthleteSettings();
         expect(result.sportSettings[0]).toMatchObject({ [field]: limits, ftp: 250 });
         expect(result.zoneWarnings).toEqual([
           { sportSettingsId: 1, types: ['Run'], field, code: 'INVALID_ZONE_LIMITS' },
@@ -102,7 +102,7 @@ describe('athlete settings', () => {
   it('does not constrain numeric zone values beyond the upstream data type', async () => {
     const profile = { id: 1, types: ['Run'], hr_zones: [-1, 150], power_zones: [0, 100] };
     mockHttp({ id: 'i12345', sportSettings: [profile] });
-    expect(await new IntervalsClient(config).getAthleteSettings()).toEqual({
+    expect(await new IntervalsApi(config).getAthleteSettings()).toEqual({
       id: 'i12345',
       sportSettings: [profile],
     });
@@ -110,7 +110,7 @@ describe('athlete settings', () => {
   it('preserves null and missing zones without warnings and ignores upstream warning fields', async () => {
     const profile = { id: 1, types: ['Run'], hr_zones: null, pace_zones: [] };
     mockHttp({ id: 'i12345', sportSettings: [profile], zoneWarnings: ['untrusted-warning'] });
-    expect(await new IntervalsClient(config).getAthleteSettings()).toEqual({
+    expect(await new IntervalsApi(config).getAthleteSettings()).toEqual({
       id: 'i12345',
       sportSettings: [profile],
     });
@@ -123,7 +123,7 @@ describe('athlete settings', () => {
     { id: 'i12345', sportSettings: [{ id: 1, types: ['Run'], ftp: '250' }] },
   ])('rejects invalid or mismatched responses %j', async (data) => {
     mockHttp(data);
-    await expect(new IntervalsClient(config).getAthleteSettings()).rejects.toThrow(
+    await expect(new IntervalsApi(config).getAthleteSettings()).rejects.toThrow(
       /Intervals API returned|API response does not match/,
     );
   });

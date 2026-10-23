@@ -4,11 +4,11 @@ import {
 } from '../../schemas/mcp/tools/list-recent-activities.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 
 import { toolResult } from '../result.js';
 
-export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsClient): void {
+export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
     'list_recent_activities',
     {

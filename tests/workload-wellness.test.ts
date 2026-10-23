@@ -1,6 +1,6 @@
 import { UpstreamDataError } from '../src/errors.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { IntervalsClient } from '../src/intervals/client.js';
+import { IntervalsApi } from '../src/intervals/api.js';
 import { mockHttp } from './helpers/http.js';
 
 const config = {
@@ -29,7 +29,7 @@ describe('workload and wellness client', () => {
     const adapter = mockHttp(
       records.map((record) => ({ ...record, description: 'private notes' })),
     );
-    expect(await new IntervalsClient(config).getActivityWorkload(range)).toEqual(records);
+    expect(await new IntervalsApi(config).getActivityWorkload(range)).toEqual(records);
     expect(adapter.mock.calls[0]![0]).toMatchObject({
       url: '/athlete/i12345/activities',
       params: range,
@@ -51,7 +51,7 @@ describe('workload and wellness client', () => {
     const adapter = mockHttp(
       records.map((record) => ({ ...record, comments: 'private notes', menstrualPhase: 'NONE' })),
     );
-    expect(await new IntervalsClient(config).getWellness(range)).toEqual([...records].reverse());
+    expect(await new IntervalsApi(config).getWellness(range)).toEqual([...records].reverse());
     expect(adapter.mock.calls[0]![0]).toMatchObject({
       url: '/athlete/i12345/wellness',
       params: range,
@@ -61,14 +61,14 @@ describe('workload and wellness client', () => {
     '%s accepts empty lists and sparse records',
     async (method) => {
       mockHttp([]);
-      expect(await new IntervalsClient(config)[method](range)).toEqual([]);
+      expect(await new IntervalsApi(config)[method](range)).toEqual([]);
     },
   );
   it.each(['getActivityWorkload', 'getWellness'] as const)(
     '%s accepts a single day and 90 inclusive days across leap day',
     async (method) => {
       const adapter = mockHttp([]);
-      const client = new IntervalsClient(config);
+      const client = new IntervalsApi(config);
       await client[method]({ oldest: '2024-02-29', newest: '2024-02-29' });
       await client[method]({ oldest: '2024-01-01', newest: '2024-03-30' });
       expect(adapter).toHaveBeenCalledTimes(2);
@@ -83,7 +83,7 @@ describe('workload and wellness client', () => {
     ].map((records) => ({ records })),
   )('rejects duplicate or out-of-range wellness dates %j', async ({ records }) => {
     mockHttp(records);
-    await expect(new IntervalsClient(config).getWellness(range)).rejects.toThrow(
+    await expect(new IntervalsApi(config).getWellness(range)).rejects.toThrow(
       'duplicate or out-of-range',
     );
   });
@@ -97,13 +97,13 @@ describe('workload and wellness client', () => {
     ].map((records) => ({ records })),
   )('rejects malformed wellness data %j', async ({ records }) => {
     mockHttp(records);
-    await expect(new IntervalsClient(config).getWellness(range)).rejects.toBeInstanceOf(
+    await expect(new IntervalsApi(config).getWellness(range)).rejects.toBeInstanceOf(
       UpstreamDataError,
     );
   });
   it('rejects invalid load values', async () => {
     mockHttp([{ id: 'i42', icu_training_load: 'bad' }]);
-    await expect(new IntervalsClient(config).getActivityWorkload(range)).rejects.toBeInstanceOf(
+    await expect(new IntervalsApi(config).getActivityWorkload(range)).rejects.toBeInstanceOf(
       UpstreamDataError,
     );
   });

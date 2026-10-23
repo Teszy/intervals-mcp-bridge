@@ -4,11 +4,11 @@ import {
 } from '../../schemas/mcp/tools/list-activity-workload.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsClient } from '../../intervals/client.js';
+import type { IntervalsApi } from '../../intervals/api.js';
 
 import { toolResult } from '../result.js';
 
-export function registerListActivityWorkloadTool(server: McpServer, client: IntervalsClient): void {
+export function registerListActivityWorkloadTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
     'list_activity_workload',
     {

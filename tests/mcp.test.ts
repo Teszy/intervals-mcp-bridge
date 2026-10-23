@@ -1,4 +1,4 @@
-import { IntervalsClient } from '../src/intervals/client.js';
+import { IntervalsApi } from '../src/intervals/api.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -204,7 +204,7 @@ describe('MCP recent activities tool', () => {
   });
 
   it('lets the SDK format sanitized unexpected handler exceptions as tool errors', async () => {
-    vi.spyOn(IntervalsClient.prototype, 'getRecentActivities').mockRejectedValue(
+    vi.spyOn(IntervalsApi.prototype, 'getRecentActivities').mockRejectedValue(
       new TypeError('secret diagnostic'),
     );
     const request = await connect();
@@ -221,9 +221,9 @@ describe('MCP recent activities tool', () => {
   });
 
   it('keeps SDK output validation errors separate and excludes malformed output values', async () => {
-    vi.spyOn(IntervalsClient.prototype, 'getRecentActivities').mockResolvedValue([
+    vi.spyOn(IntervalsApi.prototype, 'getRecentActivities').mockResolvedValue([
       { id: 'i42', moving_time: 'private-output-value' },
-    ] as unknown as Awaited<ReturnType<IntervalsClient['getRecentActivities']>>);
+    ] as unknown as Awaited<ReturnType<IntervalsApi['getRecentActivities']>>);
     const request = await connect();
     const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
     expect(response).toHaveProperty('result.isError', true);

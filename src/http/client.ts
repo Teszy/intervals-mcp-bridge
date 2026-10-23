@@ -2,7 +2,9 @@ import { parseWithError } from '../validation.js';
 import { HTTPError, UpstreamDataError } from '../errors.js';
 import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
-import type { Auth, QueryParams } from './types.js';
+import type { Auth } from './auth.js';
+
+export type QueryParams = Record<string, string | number | boolean | undefined>;
 
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
 export class HTTPClient {

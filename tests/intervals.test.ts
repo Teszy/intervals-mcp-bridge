@@ -49,12 +49,6 @@ describe('IntervalsClient activity details', () => {
     expect(await setup(data).client.getActivity('123')).toEqual(data);
   });
 
-  it.each(['', '../i42', 'i42?intervals=false'])('rejects unsafe activity ID %j', async (id) => {
-    const { client, adapter } = setup(activityDetails);
-    await expect(client.getActivity(id)).rejects.toThrow('Invalid activity ID');
-    expect(adapter).not.toHaveBeenCalled();
-  });
-
   it.each([
     { id: 'i42', source: 'STRAVA', _note: 'private restriction details' },
     { ...activityDetails, average_heartrate: 'bad' },
@@ -92,13 +86,6 @@ describe('IntervalsClient activity streams', () => {
     expect(result.streams).toEqual([activityStreams[4]]);
     expect(result.missingStreams).toEqual([]);
     expect(adapter.mock.calls[0]![0].params.types).toBe('time,altitude');
-  });
-
-  it('rejects invalid identifiers and empty selections before requesting', async () => {
-    const { client, adapter } = setup();
-    await expect(client.getActivityStreams('../i42')).rejects.toThrow('Invalid activity ID');
-    await expect(client.getActivityStreams('i42', [])).rejects.toThrow('Invalid activity stream');
-    expect(adapter).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -293,15 +280,6 @@ describe('IntervalsClient', () => {
     const data = [{ id: 'i1' }, { id: 'i2', name: null, distance: null, moving_time: 0 }];
     expect(await setup(data).client.getRecentActivities()).toEqual(data);
   });
-
-  it.each([0, -1, 366, 1.5, NaN, Infinity])(
-    'rejects invalid days %s before requesting',
-    async (days) => {
-      const { client, adapter } = setup();
-      await expect(client.getRecentActivities(days)).rejects.toThrow('days must be an integer');
-      expect(adapter).not.toHaveBeenCalled();
-    },
-  );
 
   it.each([{}, null, [{ name: 'missing id' }], [{ id: 'i1', distance: 'bad' }], 'not json'])(
     'rejects malformed responses',

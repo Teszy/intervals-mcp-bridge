@@ -1,13 +1,7 @@
-import { parseWithError } from '../../validation.js';
-import { WorkoutError, InputValidationError } from '../../errors.js';
+import { WorkoutError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { IntervalsClient } from '../../intervals/client.js';
-import {
-  plannedWorkoutSchema,
-  type PlannedWorkout,
-  type PlannedWorkoutInput,
-  type WorkoutDraftStatus,
-} from '../../schemas/workouts.js';
+import type { PlannedWorkout, WorkoutDraftStatus } from '../../schemas/workouts.js';
 import type { PlannedWorkoutEvent } from '../../schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
 
@@ -23,16 +17,9 @@ export class WorkoutDrafts {
   readonly #drafts = new Map<string, Draft>();
   readonly #byContent = new Map<string, string>();
 
-  preview(input: PlannedWorkoutInput) {
-    const workout = parseWithError(
-      plannedWorkoutSchema,
-      input,
-      (cause) =>
-        new InputValidationError(
-          'Invalid workout. Check the supplied fields and supported values.',
-          { cause },
-        ),
-    );
+  preview(input: PlannedWorkout) {
+    // Own a snapshot so later caller mutations cannot change the reviewed workout.
+    const workout = structuredClone(input);
     const contentHash = createHash('sha256').update(JSON.stringify(workout)).digest('hex');
     let draftId = this.#byContent.get(contentHash);
     if (!draftId) {

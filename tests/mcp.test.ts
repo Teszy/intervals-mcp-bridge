@@ -176,16 +176,19 @@ describe('MCP recent activities tool', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
 
-  it.each([0, 366, 1.5, '7'])('rejects invalid days %s before requesting', async (days) => {
-    const adapter = mockHttp();
-    const request = await connect();
-    const response = await request('tools/call', {
-      name: 'list_recent_activities',
-      arguments: { days },
-    });
-    expect(response).toHaveProperty('result.isError', true);
-    expect(adapter).not.toHaveBeenCalled();
-  });
+  it.each([0, -1, 366, 1.5, NaN, Infinity, '7'])(
+    'rejects invalid days %s before requesting',
+    async (days) => {
+      const adapter = mockHttp();
+      const request = await connect();
+      const response = await request('tools/call', {
+        name: 'list_recent_activities',
+        arguments: { days },
+      });
+      expect(response).toHaveProperty('result.isError', true);
+      expect(adapter).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([401, 403, 500])('reports HTTP %s as a sanitized tool error', async (status) => {
     mockHttp('test-secret response body', status);
@@ -447,17 +450,19 @@ describe('MCP activity details tool', () => {
     });
   });
 
-  it.each([{}, { activityId: '../i42' }])(
-    'rejects invalid inputs before requesting',
-    async (args) => {
-      const adapter = mockHttp();
-      const request = await connect();
-      expect(
-        await request('tools/call', { name: 'get_activity_details', arguments: args }),
-      ).toHaveProperty('result.isError', true);
-      expect(adapter).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    {},
+    { activityId: '' },
+    { activityId: '../i42' },
+    { activityId: 'i42?intervals=false' },
+  ])('rejects invalid inputs before requesting', async (args) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', { name: 'get_activity_details', arguments: args }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
 
   it('reports missing activities as sanitized HTTP errors', async () => {
     mockHttp('private activity contents', 404);
@@ -723,6 +728,8 @@ describe.each([
     { oldest: '2026-02-29', newest: '2026-03-01' },
     { oldest: '2026-10-13', newest: '2026-10-01' },
     { oldest: '2026-01-01', newest: '2026-04-01' },
+    { oldest: '2024-01-01', newest: '2024-03-31' },
+    { oldest: '2026-10-01T00:00:00', newest: '2026-10-13' },
   ])('rejects invalid dates before fetching %j', async (args) => {
     const adapter = mockHttp();
     const request = await connect();
@@ -749,6 +756,36 @@ describe.each([
 });
 
 describe('MCP planned workouts', () => {
+  it('normalizes workout input defaults before invoking the application', async () => {
+    const adapter = mockHttp();
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'preview_planned_workout',
+      arguments: {
+        workout: {
+          name: '  Easy workout  ',
+          sport: 'Run',
+          startDateLocal: plannedWorkout.startDateLocal,
+          steps: [{ name: '  Easy  ', duration: { type: 'time', seconds: 60 } }],
+        },
+      },
+    });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: {
+          status: 'ready',
+          timedSeconds: 60,
+          totalDurationKnown: true,
+          workout: {
+            name: 'Easy workout',
+            steps: [{ name: 'Easy', intensity: 'active', target: { type: 'open' } }],
+          },
+        },
+      },
+    });
+    expect(response).not.toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
   it('previews without a write and publishes the approved draft only once', async () => {
     const adapter = mockHttp(plannedEvent);
     const request = await connect();

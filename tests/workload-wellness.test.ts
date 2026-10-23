@@ -74,18 +74,7 @@ describe('workload and wellness client', () => {
       expect(adapter).toHaveBeenCalledTimes(2);
     },
   );
-  it.each([
-    { oldest: '2026-02-29', newest: '2026-03-01' },
-    { oldest: '2026-10-14', newest: '2026-10-13' },
-    { oldest: '2024-01-01', newest: '2024-03-31' },
-    { oldest: '2026-10-01T00:00:00', newest: '2026-10-13' },
-  ])('rejects invalid or oversized ranges before HTTP %j', async (dates) => {
-    const adapter = mockHttp([]);
-    const client = new IntervalsClient(config);
-    await expect(client.getWellness(dates)).rejects.toThrow();
-    await expect(client.getActivityWorkload(dates)).rejects.toThrow();
-    expect(adapter).not.toHaveBeenCalled();
-  });
+
   it.each(
     [
       [{ id: '2026-10-13' }, { id: '2026-10-13' }],

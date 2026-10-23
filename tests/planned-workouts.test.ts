@@ -20,10 +20,11 @@ const config = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('FIT planned workouts', () => {
-  it('requires a validated workout type for FIT encoding and publication', () => {
+  it('requires a validated workout type for preview, FIT encoding and publication', () => {
     expectTypeOf<
       PlannedWorkoutInput extends PlannedWorkout ? true : false
     >().toEqualTypeOf<false>();
+    expectTypeOf<Parameters<WorkoutDrafts['preview']>[0]>().toEqualTypeOf<PlannedWorkout>();
     expectTypeOf<Parameters<typeof encodeWorkoutFit>[0]>().toEqualTypeOf<PlannedWorkout>();
     expectTypeOf<
       Parameters<IntervalsClient['publishPlannedWorkout']>[0]
@@ -99,14 +100,25 @@ describe('FIT planned workouts', () => {
 });
 
 describe('workout draft publication', () => {
-  it('normalizes defaults before hashing, encoding and storing the reviewed workout', () => {
+  it('owns a snapshot independent of later caller mutations', () => {
+    const drafts = new WorkoutDrafts();
+    const input = structuredClone(plannedWorkout);
+    const preview = drafts.preview(input);
+    input.name = 'Changed after preview';
+    input.steps[0]!.name = 'Changed step';
+    const repeated = drafts.preview(plannedWorkout);
+    expect(repeated.draftId).toBe(preview.draftId);
+    expect(repeated.workout).toEqual(plannedWorkout);
+    expect(repeated.fit).toEqual(preview.fit);
+  });
+  it('uses a normalized workout for hashing, encoding and storing the reviewed workout', () => {
     const drafts = new WorkoutDrafts();
     const input = {
       ...plannedWorkout,
       name: '  Default targets  ',
       steps: [{ name: '  Easy  ', duration: { type: 'time' as const, seconds: 60 } }],
     };
-    const preview = drafts.preview(input);
+    const preview = drafts.preview(plannedWorkoutSchema.parse(input));
     expect(preview.workout.name).toBe('Default targets');
     expect(preview.workout.steps).toEqual([
       {
@@ -170,7 +182,9 @@ describe('workout draft publication', () => {
   it('requires a new draft after changes and reports known duration for time-only workouts', () => {
     const drafts = new WorkoutDrafts();
     const first = drafts.preview(plannedWorkout);
-    const second = drafts.preview({ ...plannedWorkout, steps: [plannedWorkout.steps[0]!] });
+    const second = drafts.preview(
+      plannedWorkoutSchema.parse({ ...plannedWorkout, steps: [plannedWorkout.steps[0]!] }),
+    );
     expect(second.draftId).not.toBe(first.draftId);
     expect(second).toMatchObject({ timedSeconds: 600, totalDurationKnown: true });
   });

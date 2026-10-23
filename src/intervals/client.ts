@@ -1,5 +1,5 @@
 import { parseWithError } from '../validation.js';
-import { InputValidationError, UpstreamDataError } from '../errors.js';
+import { UpstreamDataError } from '../errors.js';
 import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
 import { HTTPClient } from '../http/client.js';
 import type { BasicAuth } from '../http/types.js';
@@ -11,20 +11,17 @@ import {
   activityWorkloadSchema,
   type ActivityWorkload,
   activityDetailsSchema,
-  activityIdSchema,
   activitySummarySchema,
-  recentActivityDaysSchema,
   type ActivityDetails,
   type ActivitySummary,
 } from '../schemas/activities.js';
 import { wellnessSchema, type Wellness } from '../schemas/wellness.js';
-import { trainingDateRangeSchema, type TrainingDateRange } from '../schemas/date-range.js';
+import type { TrainingDateRange } from '../schemas/date-range.js';
 import {
   athleteSettingsResponseSchema,
   type AthleteSettings,
 } from '../schemas/athlete-settings.js';
 import {
-  activityStreamTypesSchema,
   activityStreamsResponseSchema,
   defaultActivityStreamTypes,
   type ActivityStreams,
@@ -35,6 +32,7 @@ export { activitySummarySchema } from '../schemas/activities.js';
 export type { ActivityDetails, ActivitySummary } from '../schemas/activities.js';
 export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js';
 
+/** Internal adapter: callers validate inputs at the application boundary; responses are validated here. */
 export class IntervalsClient {
   readonly #config: IntervalsConfig;
   readonly #http: HTTPClient;
@@ -71,16 +69,7 @@ export class IntervalsClient {
   }
 
   /** Fetch session workload in an inclusive athlete-local date range. */
-  async getActivityWorkload(range: TrainingDateRange): Promise<ActivityWorkload[]> {
-    const dates = parseWithError(
-      trainingDateRangeSchema,
-      range,
-      (cause) =>
-        new InputValidationError(
-          'Invalid date range. Supply valid oldest/newest dates spanning at most 90 inclusive days.',
-          { cause },
-        ),
-    );
+  async getActivityWorkload(dates: TrainingDateRange): Promise<ActivityWorkload[]> {
     return this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activityWorkloadSchema),
@@ -89,16 +78,7 @@ export class IntervalsClient {
   }
 
   /** Fetch recorded daily wellness and upstream fitness values, without filling gaps. */
-  async getWellness(range: TrainingDateRange): Promise<Wellness[]> {
-    const dates = parseWithError(
-      trainingDateRangeSchema,
-      range,
-      (cause) =>
-        new InputValidationError(
-          'Invalid date range. Supply valid oldest/newest dates spanning at most 90 inclusive days.',
-          { cause },
-        ),
-    );
+  async getWellness(dates: TrainingDateRange): Promise<Wellness[]> {
     const records = await this.#http.get(
       `/athlete/${this.#config.athleteId}/wellness`,
       z.array(wellnessSchema),
@@ -130,14 +110,9 @@ export class IntervalsClient {
 
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
   async getRecentActivities(days = 7): Promise<ActivitySummary[]> {
-    const selectedDays = parseWithError(
-      recentActivityDaysSchema,
-      days,
-      (cause) => new InputValidationError('days must be an integer between 1 and 365.', { cause }),
-    );
     const newest = new Date();
     const oldest = new Date(newest);
-    oldest.setUTCDate(oldest.getUTCDate() - selectedDays + 1);
+    oldest.setUTCDate(oldest.getUTCDate() - days + 1);
     const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activitySummarySchema),
@@ -152,20 +127,14 @@ export class IntervalsClient {
 
   /** Fetch session metrics and detected work/recovery intervals for one activity. */
   async getActivity(activityId: string): Promise<ActivityDetails> {
-    const id = parseWithError(
-      activityIdSchema,
-      activityId,
-      (cause) => new InputValidationError('Invalid activity ID.', { cause }),
-    );
-
     const data = await this.#http.get(
-      `/activity/${encodeURIComponent(id)}`,
+      `/activity/${encodeURIComponent(activityId)}`,
       activityDetailsSchema,
       {
         intervals: true,
       },
     );
-    if (data.id !== id) {
+    if (data.id !== activityId) {
       throw new UpstreamDataError('Intervals API returned details for a different activity.');
     }
     return data;
@@ -176,20 +145,10 @@ export class IntervalsClient {
     activityId: string,
     types: ActivityStreamType[] = defaultActivityStreamTypes,
   ): Promise<ActivityStreams> {
-    const id = parseWithError(
-      activityIdSchema,
-      activityId,
-      (cause) => new InputValidationError('Invalid activity ID.', { cause }),
-    );
-    const selection = parseWithError(
-      activityStreamTypesSchema,
-      types,
-      (cause) => new InputValidationError('Invalid activity stream selection.', { cause }),
-    );
-    const requestedTypes = [...new Set(selection)];
+    const requestedTypes = [...new Set(types)];
 
     const data = await this.#http.get(
-      `/activity/${encodeURIComponent(id)}/streams.json`,
+      `/activity/${encodeURIComponent(activityId)}/streams.json`,
       activityStreamsResponseSchema,
       {
         types: ['time', ...requestedTypes].join(','),
@@ -225,6 +184,6 @@ export class IntervalsClient {
       streams.push({ type, data: values });
       if (values.every((value) => value === null)) missingStreams.push(type);
     }
-    return { time: time, streams, missingStreams };
+    return { time, streams, missingStreams };
   }
 }

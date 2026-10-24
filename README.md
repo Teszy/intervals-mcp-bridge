@@ -6,8 +6,7 @@ data and lets them publish approved planned workouts.
 ## Setup
 
 > [!NOTE]
-> Before using this project, make sure Node.js 24 and the pnpm version pinned in
-> [package.json](package.json) are available on your machine.
+> Requires **VS Code 1.140 or later**. **Copilot Free is sufficient**.
 
 Create a local `.env` file from [.env.example](.env.example) in the repository root.
 
@@ -126,32 +125,41 @@ Install dependencies from the repository root:
 pnpm install
 ```
 
-### Local development (example: VS Code and Copilot)
-
-For development, run the MCP server directly through an MCP host. VS Code with
-Copilot is one example; this path needs only the Intervals settings in `.env`.
-Create `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "intervals": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["--env-file=${workspaceFolder}/.env", "${workspaceFolder}/dist/src/index.js"]
-    }
-  }
-}
-```
-
 Build the server:
 
 ```sh
 pnpm build
 ```
 
-Open `.vscode/mcp.json` and start `intervals` using VS Code's MCP controls.
-Ask Copilot for your recent activities to verify the connection. After source
+Run the MCP server directly through an MCP host.
+
+### Using VS Code and Copilot as MCP host
+
+> [!NOTE]
+> Requires VS Code 1.140 or later. Copilot Free is sufficient.
+
+Create a file named `.mcp.json` in the repository root with the following content:
+
+```json
+{
+  "mcpServers": {
+    "intervals-mcp-bridge": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["--env-file=/absolute/path/to/.env", "/absolute/path/to/dist/src/index.js"],
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+Replace both example paths with absolute paths to your local checkout. The `.mcp.json` file is ignored by Git by default because it contains
+machine-specific paths; each developer creates their own local copy.
+
+Start the MCP using VS Code's MCP controls.
+Ask Copilot for your recent activities to verify the connection.
+
+After source
 changes, rebuild and restart the server. VS Code manages the process over stdio.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for component responsibilities, data flow,

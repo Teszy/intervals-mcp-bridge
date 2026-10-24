@@ -159,12 +159,21 @@ protocol handling and data contracts:
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/app/`       | Bridge-specific behavior, grouped by feature: stream processing, zone warnings and workout workflows. Keeps these operations independent of MCP registration; feature-specific helpers such as FIT encoding stay beside their workflow. |
 | `src/http/`      | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                                      |
-| `src/intervals/` | Intervals integration: configuration, endpoints, request mapping and response consistency checks. Hides upstream API details from tool handlers.                                                                                        |
+| `src/intervals/` | Intervals integration: configuration and the `IntervalsApi` adapter for endpoints, request mapping and response consistency checks. Hides upstream API details from tool handlers.                                                      |
 | `src/mcp/`       | MCP server composition, tool registration and result formatting. Connects client calls and application operations to the protocol.                                                                                                      |
 | `src/schemas/`   | Shared data contracts and their derived TypeScript types. MCP-specific contracts live under `mcp/`, with individual tool contracts under `mcp/tools/`; configuration validation stays with its loader.                                  |
 
-`src/index.ts` starts the stdio server and handles process shutdown. The server
-factory constructs the client, registers tools and owns session-scoped state.
+`src/errors.ts` defines the shared exception hierarchy. Expected failures inherit
+from `AppError` and carry controlled messages supplied at the throw site.
+
+`src/index.ts` loads configuration and calls `startServer(config)` inside the
+entry-point `try/catch`, which handles synchronous startup failures.
+`src/mcp/server.ts` assembles the server and starts the SDK's `serveStdio`
+transport. The server factory constructs the client, registers tools and owns
+session-scoped state. The SDK owns protocol negotiation, transport startup and EOF teardown;
+SIGINT and SIGTERM request shutdown through its returned handle. SDK-reported
+failures are written to stderr. Transport lifecycle errors follow SDK
+semantics rather than a separate application transport wrapper.
 
 The MCP SDK supplies transport and dispatch. Supporting libraries supply schema
 validation (Zod), HTTP execution (Axios) and FIT encoding/decoding (Garmin SDK).
@@ -173,14 +182,30 @@ HTTPS. The host owns model communication, while the bridge owns Intervals access
 
 ### Data contracts and processing
 
-The shared result adapter returns the same successful object as structured content
-and JSON text for host compatibility. It encloses the application operation,
-including HTTP and tool-side processing. Known HTTP errors retain their sanitized
-message, while other exceptions use a fixed tool-specific message. Credentials,
-raw responses and arbitrary exception details do not reach the model.
+Each tool registers its operation through `toolHandler` in
+`src/mcp/tool-handler.ts`. This shared wrapper returns the same successful object
+as structured content and JSON text for host compatibility. It encloses the application operation,
+including HTTP and tool-side processing. Expected failures use responsibility-specific
+`AppError` subclasses with controlled messages supplied where they are thrown; unknown exceptions become a
+generic internal error. The shared tool boundary rethrows expected exceptions
+unchanged and replaces unexpected ones with a safe error. Wrapped execution failures retain
+their original exceptions and stacks through `Error.cause`. Expected schema
+validation failures use controlled messages without retaining Zod internals; the SDK exposes only
+the outer message. The MCP SDK converts
+handler exceptions into `isError` results; input validation and protocol errors
+also remain its responsibility. Output-schema validation happens after the
+application wrapper, so its diagnostics are SDK-generated; schema descriptions
+and custom validation messages must not contain secrets.
+HTTP error translation and publication state changes stay at their respective
+boundaries. Credentials, raw responses and arbitrary exception details do not
+reach the model.
 
 The MCP SDK validates tool inputs, and the HTTP adapter validates upstream
-responses before application processing. Response schemas select exposed fields.
+responses before application processing. Internal client methods consume validated
+arguments without parsing them again. Workout preview accepts a branded, normalized
+`PlannedWorkout` and takes its own snapshot; direct callers must parse raw input
+before calling it. Configuration loading and stricter upstream time-stream checks
+remain separate validation boundaries. Response schemas select exposed fields.
 The Intervals client then enforces domain
 consistency, such as athlete identity, wellness date integrity and stream alignment.
 Missing observations remain absent or null. Wellness fitness/fatigue values come
@@ -217,7 +242,7 @@ It cannot independently inspect conversation consent.
 ## Maintaining these boundaries
 
 Add endpoint integration and response contracts in the Intervals layer, then
-register a tool using the shared result adapter. Keep calculations independent of
+register a tool using the shared `toolHandler` wrapper. Keep calculations independent of
 transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.

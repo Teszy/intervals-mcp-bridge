@@ -264,6 +264,20 @@ describe('workout draft publication', () => {
     await first;
     expect(adapter).toHaveBeenCalledTimes(1);
   });
+  it('keeps a draft ready when publication is cancelled before starting', async () => {
+    const adapter = mockHttp(plannedEvent);
+    const drafts = new WorkoutDrafts();
+    const { draftId } = drafts.preview(plannedWorkout);
+    const client = new IntervalsApi(config);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(drafts.publish(draftId, client, controller.signal)).rejects.toThrow();
+    expect(adapter).not.toHaveBeenCalled();
+    expect(drafts.preview(plannedWorkout).status).toBe('ready');
+    await expect(drafts.publish(draftId, client)).resolves.toMatchObject({ event: plannedEvent });
+    expect(adapter).toHaveBeenCalledTimes(1);
+  });
   it.each([500, 200])('blocks retries when outcome is uncertain (HTTP %s)', async (status) => {
     const adapter = mockHttp({ private: 'secret' }, status);
     const drafts = new WorkoutDrafts();

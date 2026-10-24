@@ -52,7 +52,7 @@ export class WorkoutDrafts {
     };
   }
 
-  async publish(draftId: string, client: IntervalsApi) {
+  async publish(draftId: string, client: IntervalsApi, signal?: AbortSignal) {
     const draft = this.#drafts.get(draftId);
     if (!draft)
       throw new WorkoutError(
@@ -67,12 +67,15 @@ export class WorkoutDrafts {
       throw new WorkoutError(
         'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
       );
+    // Cancellation before any write starts must leave the reviewed draft usable.
+    signal?.throwIfAborted();
     draft.status = 'publishing';
     try {
       const event = await client.publishPlannedWorkout(
         draft.workout,
         draft.fit,
         `intervals-mcp-${draftId}`,
+        signal,
       );
       draft.event = event;
       draft.status = 'published';

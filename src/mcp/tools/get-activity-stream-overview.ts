@@ -23,8 +23,8 @@ export function registerGetActivityStreamOverviewTool(
       outputSchema: getActivityStreamOverviewOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ activityId, types, maxPoints, startTime, endTime }) => {
-      const data = await client.getActivityStreams(activityId, types);
+    toolHandler(async ({ activityId, types, maxPoints, startTime, endTime }, ctx) => {
+      const data = await client.getActivityStreams(activityId, types, ctx.mcpReq.signal);
       return {
         activityId,
         ...createActivityStreamOverview(data, { maxPoints, startTime, endTime }),

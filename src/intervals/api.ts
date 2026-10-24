@@ -51,6 +51,7 @@ export class IntervalsApi {
     workout: PlannedWorkout,
     fit: Uint8Array,
     externalId: string,
+    signal?: AbortSignal,
   ): Promise<PlannedWorkoutEvent> {
     const event = await this.#http.post(
       `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
@@ -64,6 +65,7 @@ export class IntervalsApi {
         filename: 'workout.fit',
         file_contents_base64: Buffer.from(fit).toString('base64'),
       },
+      signal,
     );
     if (
       event.start_date_local !== workout.startDateLocal ||
@@ -78,20 +80,25 @@ export class IntervalsApi {
   }
 
   /** Fetch session workload in an inclusive athlete-local date range. */
-  async getActivityWorkload(dates: TrainingDateRange): Promise<ActivityWorkload[]> {
+  async getActivityWorkload(
+    dates: TrainingDateRange,
+    signal?: AbortSignal,
+  ): Promise<ActivityWorkload[]> {
     return this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activityWorkloadSchema),
       dates,
+      signal,
     );
   }
 
   /** Fetch recorded daily wellness and upstream fitness values, without filling gaps. */
-  async getWellness(dates: TrainingDateRange): Promise<Wellness[]> {
+  async getWellness(dates: TrainingDateRange, signal?: AbortSignal): Promise<Wellness[]> {
     const records = await this.#http.get(
       `/athlete/${this.#config.athleteId}/wellness`,
       z.array(wellnessSchema),
       dates,
+      signal,
     );
     const seen = new Set<string>();
     for (const record of records) {
@@ -106,10 +113,12 @@ export class IntervalsApi {
   }
 
   /** Fetch current settings, exposing only training context fields. */
-  async getAthleteSettings(): Promise<AthleteSettings> {
+  async getAthleteSettings(signal?: AbortSignal): Promise<AthleteSettings> {
     const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}`,
       athleteSettingsResponseSchema,
+      undefined,
+      signal,
     );
     if (this.#config.athleteId !== '0' && data.id !== this.#config.athleteId) {
       throw new UpstreamDataError('Intervals API returned settings for a different athlete.');
@@ -118,7 +127,7 @@ export class IntervalsApi {
   }
 
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
-  async getRecentActivities(days = 7): Promise<ActivitySummary[]> {
+  async getRecentActivities(days = 7, signal?: AbortSignal): Promise<ActivitySummary[]> {
     const newest = new Date();
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - days + 1);
@@ -129,19 +138,21 @@ export class IntervalsApi {
         oldest: oldest.toISOString().slice(0, 10),
         newest: newest.toISOString().slice(0, 10),
       },
+      signal,
     );
 
     return data;
   }
 
   /** Fetch session metrics and detected work/recovery intervals for one activity. */
-  async getActivity(activityId: string): Promise<ActivityDetails> {
+  async getActivity(activityId: string, signal?: AbortSignal): Promise<ActivityDetails> {
     const data = await this.#http.get(
       `/activity/${encodeURIComponent(activityId)}`,
       activityDetailsSchema,
       {
         intervals: true,
       },
+      signal,
     );
     if (data.id !== activityId) {
       throw new UpstreamDataError('Intervals API returned details for a different activity.');
@@ -153,6 +164,7 @@ export class IntervalsApi {
   async getActivityStreams(
     activityId: string,
     types: ActivityStreamType[] = defaultActivityStreamTypes,
+    signal?: AbortSignal,
   ): Promise<ActivityStreams> {
     const requestedTypes = [...new Set(types)];
 
@@ -163,6 +175,7 @@ export class IntervalsApi {
         types: ['time', ...requestedTypes].join(','),
         includeDefaults: false,
       },
+      signal,
     );
 
     const byType = new Map(data.map((stream) => [stream.type, stream.data]));

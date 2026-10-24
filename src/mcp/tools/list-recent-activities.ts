@@ -26,6 +26,8 @@ export function registerListRecentActivitiesTool(server: McpServer, client: Inte
       outputSchema: listRecentActivitiesOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ days }) => ({ activities: await client.getRecentActivities(days) })),
+    toolHandler(async ({ days }, ctx) => ({
+      activities: await client.getRecentActivities(days, ctx.mcpReq.signal),
+    })),
   );
 }

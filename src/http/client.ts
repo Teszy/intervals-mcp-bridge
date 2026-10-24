@@ -24,7 +24,7 @@ export class HTTPClient {
     const dataResult = await this.#request(async (client) => {
       const response = await client.get<unknown>(endpoint, {
         params,
-        signal: signal ?? AbortSignal.timeout(15_000),
+        signal: this.#requestSignal(signal),
       });
       return response.data;
     });
@@ -39,7 +39,7 @@ export class HTTPClient {
   ): Promise<z.output<S>> {
     const dataResult = await this.#request(async (client) => {
       const response = await client.post<unknown>(endpoint, data, {
-        signal: signal ?? AbortSignal.timeout(15_000),
+        signal: this.#requestSignal(signal),
       });
       return response.data;
     });
@@ -62,6 +62,11 @@ export class HTTPClient {
       throw new UpstreamDataError('API response does not match the expected schema.');
     }
     return result.data;
+  }
+
+  #requestSignal(signal?: AbortSignal): AbortSignal {
+    const deadline = AbortSignal.timeout(15_000);
+    return signal ? AbortSignal.any([signal, deadline]) : deadline;
   }
 
   #createClient(): AxiosInstance {

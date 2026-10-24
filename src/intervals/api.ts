@@ -52,7 +52,7 @@ export class IntervalsApi {
     fit: Uint8Array,
     externalId: string,
   ): Promise<PlannedWorkoutEvent> {
-    return this.#http.post(
+    const event = await this.#http.post(
       `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
       plannedWorkoutEventSchema,
       {
@@ -65,6 +65,16 @@ export class IntervalsApi {
         file_contents_base64: Buffer.from(fit).toString('base64'),
       },
     );
+    if (
+      event.start_date_local !== workout.startDateLocal ||
+      event.type !== workout.sport ||
+      (event.external_id != null && event.external_id !== externalId)
+    ) {
+      throw new UpstreamDataError(
+        'Intervals API returned a planned workout that does not match the published draft.',
+      );
+    }
+    return event;
   }
 
   /** Fetch session workload in an inclusive athlete-local date range. */

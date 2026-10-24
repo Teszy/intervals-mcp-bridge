@@ -1,5 +1,5 @@
 import { UpstreamDataError } from '../errors.js';
-import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
+import { addZoneWarnings } from './zone-warnings.js';
 import { HTTPClient } from '../http/client.js';
 import type { BasicAuth } from '../http/auth.js';
 import { z } from 'zod';

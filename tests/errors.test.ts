@@ -7,9 +7,31 @@ import {
 } from '../src/errors.js';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { toolResult } from '../src/mcp/result.js';
+import { toolHandler } from '../src/mcp/tool-handler.js';
 
 describe('central error boundary', () => {
+  it('runs a synchronous operation with the handler arguments only when invoked', async () => {
+    let calls = 0;
+    const handler = toolHandler((input: { value: number }) => {
+      calls++;
+      return { doubled: input.value * 2 };
+    });
+    expect(calls).toBe(0);
+    await expect(handler({ value: 21 })).resolves.toEqual({
+      structuredContent: { doubled: 42 },
+      content: [{ type: 'text', text: '{"doubled":42}' }],
+    });
+    expect(calls).toBe(1);
+  });
+
+  it('handles synchronous exceptions through the same boundary', async () => {
+    const error = new WorkoutError('Unknown draft.');
+    const handler = toolHandler(() => {
+      throw error;
+    });
+    await expect(handler()).rejects.toBe(error);
+  });
+
   it('preserves the exception type, inheritance and stack', () => {
     const error = new WorkoutError('Unknown draft; generate and review a preview first.');
     expect(error).toBeInstanceOf(Error);
@@ -26,9 +48,9 @@ describe('central error boundary', () => {
     new UpstreamDataError('Intervals API returned inconsistent data.'),
   ])('exposes controlled application messages', async (error) => {
     await expect(
-      toolResult(async () => {
+      toolHandler(async () => {
         throw error;
-      }),
+      })(),
     ).rejects.toBe(error);
   });
 
@@ -39,9 +61,9 @@ describe('central error boundary', () => {
     { name: 'AppError', message: 'secret' },
     z.string().safeParse(42).error,
   ])('hides untrusted and unexpected errors', async (error) => {
-    const operation = toolResult(async () => {
+    const operation = toolHandler(async () => {
       throw error;
-    });
+    })();
     await expect(operation).rejects.toThrow(
       'Unable to complete the operation due to an internal error.',
     );
@@ -57,9 +79,9 @@ describe('central error boundary', () => {
     expect(error).toBeInstanceOf(UpstreamDataError);
     expect(error).not.toBeInstanceOf(HTTPError);
     await expect(
-      toolResult(async () => {
+      toolHandler(async () => {
         throw error;
-      }),
+      })(),
     ).rejects.toBe(error);
     expect(error.message).toBe('API response does not match the expected schema.');
   });
@@ -73,9 +95,9 @@ describe('central error boundary', () => {
   ])('handles HTTP exceptions through the same application boundary', async (error) => {
     expect(error).toBeInstanceOf(AppError);
     await expect(
-      toolResult(async () => {
+      toolHandler(async () => {
         throw error;
-      }),
+      })(),
     ).rejects.toBe(error);
     expect(error.message).toBe(`HTTP request failed (HTTP ${error.status}).`);
   });
@@ -86,7 +108,7 @@ describe('central error boundary', () => {
 
   it('preserves both successful representations', async () => {
     const output = { value: 42 };
-    expect(await toolResult(async () => output)).toEqual({
+    expect(await toolHandler(async () => output)()).toEqual({
       structuredContent: output,
       content: [{ type: 'text', text: JSON.stringify(output) }],
     });

@@ -1,0 +1,116 @@
+import {
+  AppError,
+  HTTPError,
+  UpstreamDataError,
+  InputValidationError,
+  WorkoutError,
+} from '../src/errors.js';
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { toolHandler } from '../src/mcp/tool-handler.js';
+
+describe('central error boundary', () => {
+  it('runs a synchronous operation with the handler arguments only when invoked', async () => {
+    let calls = 0;
+    const handler = toolHandler((input: { value: number }) => {
+      calls++;
+      return { doubled: input.value * 2 };
+    });
+    expect(calls).toBe(0);
+    await expect(handler({ value: 21 })).resolves.toEqual({
+      structuredContent: { doubled: 42 },
+      content: [{ type: 'text', text: '{"doubled":42}' }],
+    });
+    expect(calls).toBe(1);
+  });
+
+  it('handles synchronous exceptions through the same boundary', async () => {
+    const error = new WorkoutError('Unknown draft.');
+    const handler = toolHandler(() => {
+      throw error;
+    });
+    await expect(handler()).rejects.toBe(error);
+  });
+
+  it('preserves the exception type, inheritance and stack', () => {
+    const error = new WorkoutError('Unknown draft; generate and review a preview first.');
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toBeInstanceOf(WorkoutError);
+    expect(error.name).toBe('WorkoutError');
+    expect(error.stack).toContain('WorkoutError');
+  });
+
+  it.each([
+    new WorkoutError('Unknown draft; generate and review a preview first.'),
+    new WorkoutError('Publication outcome is uncertain. Inspect the calendar first.'),
+    new InputValidationError('Invalid input.'),
+    new UpstreamDataError('Intervals API returned inconsistent data.'),
+  ])('exposes controlled application messages', async (error) => {
+    await expect(
+      toolHandler(async () => {
+        throw error;
+      })(),
+    ).rejects.toBe(error);
+  });
+
+  it.each([
+    new Error('secret diagnostic'),
+    'secret string',
+    null,
+    { name: 'AppError', message: 'secret' },
+    z.string().safeParse(42).error,
+  ])('hides untrusted and unexpected errors', async (error) => {
+    const operation = toolHandler(async () => {
+      throw error;
+    })();
+    await expect(operation).rejects.toThrow(
+      'Unable to complete the operation due to an internal error.',
+    );
+    const sanitized: unknown = await operation.catch((caught: unknown) => caught);
+    expect(sanitized).not.toBe(error);
+    expect(sanitized).toHaveProperty('cause', error);
+    if (error instanceof Error) expect(sanitized).toHaveProperty('cause.stack', error.stack);
+    expect(String(sanitized)).not.toContain('secret');
+  });
+
+  it('preserves upstream validation exceptions without wrapping them', async () => {
+    const error = new UpstreamDataError('API response does not match the expected schema.');
+    expect(error).toBeInstanceOf(UpstreamDataError);
+    expect(error).not.toBeInstanceOf(HTTPError);
+    await expect(
+      toolHandler(async () => {
+        throw error;
+      })(),
+    ).rejects.toBe(error);
+    expect(error.message).toBe('API response does not match the expected schema.');
+  });
+
+  it.each([
+    new HTTPError(404),
+    new HTTPError(429),
+    new HTTPError(500),
+    new HTTPError(401),
+    new HTTPError(403),
+  ])('handles HTTP exceptions through the same application boundary', async (error) => {
+    expect(error).toBeInstanceOf(AppError);
+    await expect(
+      toolHandler(async () => {
+        throw error;
+      })(),
+    ).rejects.toBe(error);
+    expect(error.message).toBe(`HTTP request failed (HTTP ${error.status}).`);
+  });
+
+  it('does not publish invalid HTTP statuses', () => {
+    expect(new HTTPError(Number.NaN).message).toBe('HTTP request failed.');
+  });
+
+  it('preserves both successful representations', async () => {
+    const output = { value: 42 };
+    expect(await toolHandler(async () => output)()).toEqual({
+      structuredContent: output,
+      content: [{ type: 'text', text: JSON.stringify(output) }],
+    });
+  });
+});

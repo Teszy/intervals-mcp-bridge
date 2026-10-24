@@ -1,27 +1,26 @@
-import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import type { IntervalsClient } from '../../intervals/client.js';
-import { activityDetailsSchema, activityIdSchema } from '../../intervals/schemas.js';
-import { toolResult } from '../result.js';
+import { activityDetailsSchema, activityIdSchema } from '../../schemas/activities.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 
-const inputSchema = z.object({ activityId: activityIdSchema });
-const outputSchema = z.object({ activity: activityDetailsSchema });
+import type { IntervalsApi } from '../../intervals/api.js';
 
-export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsClient): void {
+import { toolHandler } from '../tool-handler.js';
+
+const getActivityDetailsInputSchema = z.strictObject({ activityId: activityIdSchema });
+
+const getActivityDetailsOutputSchema = z.object({ activity: activityDetailsSchema });
+
+export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
     'get_activity_details',
     {
       title: 'Activity details',
       description:
         'Fetch session metrics and detected work/recovery intervals for an activity. Use an ID from list_recent_activities. Missing or null measurements are unavailable, not zero. Speeds are meters per second; cadence units depend on sport and recording source. Use get_activity_stream_overview for measurements over time.',
-      inputSchema,
-      outputSchema,
+      inputSchema: getActivityDetailsInputSchema,
+      outputSchema: getActivityDetailsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId }) =>
-      toolResult(
-        async () => ({ activity: await client.getActivity(activityId) }),
-        'Unable to retrieve valid activity details. The activity may be unavailable through the Intervals API.',
-      ),
+    toolHandler(async ({ activityId }) => ({ activity: await client.getActivity(activityId) })),
   );
 }

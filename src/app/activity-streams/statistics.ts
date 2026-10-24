@@ -1,4 +1,8 @@
-import { activityStreamUnits, type ActivityStreams, type ActivityStreamType } from './schemas.js';
+import {
+  activityStreamUnits,
+  type ActivityStreams,
+  type ActivityStreamType,
+} from '../../schemas/streams.js';
 
 export type ActivityStreamStatisticsOptions = {
   startTime?: number | undefined;

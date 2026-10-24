@@ -1,16 +1,14 @@
+import { WorkoutError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
-import type { IntervalsClient } from '../intervals/client.js';
-import {
-  plannedWorkoutSchema,
-  type PlannedWorkout,
-  type PlannedWorkoutEvent,
-} from '../intervals/schemas.js';
+import type { IntervalsApi } from '../../intervals/api.js';
+import type { PlannedWorkout, WorkoutDraftStatus } from '../../schemas/workouts.js';
+import type { PlannedWorkoutEvent } from '../../schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
 
 type Draft = {
   workout: PlannedWorkout;
   fit: Uint8Array;
-  status: 'ready' | 'publishing' | 'published' | 'unknown';
+  status: WorkoutDraftStatus;
   event?: PlannedWorkoutEvent;
 };
 
@@ -20,12 +18,13 @@ export class WorkoutDrafts {
   readonly #byContent = new Map<string, string>();
 
   preview(input: PlannedWorkout) {
-    const workout = plannedWorkoutSchema.parse(input);
+    // Own a snapshot so later caller mutations cannot change the reviewed workout.
+    const workout = structuredClone(input);
     const contentHash = createHash('sha256').update(JSON.stringify(workout)).digest('hex');
     let draftId = this.#byContent.get(contentHash);
     if (!draftId) {
       if (this.#drafts.size >= 100)
-        throw new Error('Draft capacity reached; restart the server to create more drafts.');
+        throw new WorkoutError('Draft capacity reached; restart the server to create more drafts.');
       const fit = encodeWorkoutFit(workout);
       draftId = randomUUID();
       this.#drafts.set(draftId, { workout, fit, status: 'ready' });
@@ -53,14 +52,20 @@ export class WorkoutDrafts {
     };
   }
 
-  async publish(draftId: string, client: IntervalsClient) {
+  async publish(draftId: string, client: IntervalsApi) {
     const draft = this.#drafts.get(draftId);
     if (!draft)
-      throw new Error('Unknown draft; generate and review a preview in this server session first.');
+      throw new WorkoutError(
+        'Unknown draft; generate and review a preview in this server session first.',
+      );
     if (draft.status === 'published') return { draftId, event: draft.event! };
-    if (draft.status !== 'ready')
-      throw new Error(
-        'Publication is in progress or uncertain. Inspect the Intervals calendar before taking further action.',
+    if (draft.status === 'publishing')
+      throw new WorkoutError(
+        'Publication is in progress. Wait for its result before taking further action.',
+      );
+    if (draft.status === 'unknown')
+      throw new WorkoutError(
+        'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
       );
     draft.status = 'publishing';
     try {
@@ -72,11 +77,12 @@ export class WorkoutDrafts {
       draft.event = event;
       draft.status = 'published';
       return { draftId, event };
-    } catch {
+    } catch (error: unknown) {
       // A timeout or invalid response can occur after upstream creation; never retry blindly.
       draft.status = 'unknown';
-      throw new Error(
+      throw new WorkoutError(
         'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
+        { cause: error },
       );
     }
   }

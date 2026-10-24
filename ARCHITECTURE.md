@@ -142,12 +142,38 @@ processing and session-state rules remain the same.
 
 ## Composition and ownership
 
-| Responsibility                | Code and architectural purpose                                                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Composition and configuration | Entry point and server factory construct the configured client, tool registry and session state.                                          |
-| MCP interface                 | Tool adapters and the shared result adapter translate MCP calls into application operations and return curated data or controlled errors. |
-| Application logic             | Stream analysis and reviewed workout drafts provide the behavior specific to this bridge. The sections below explain their constraints.   |
-| Intervals integration         | The Intervals client and HTTP adapter isolate upstream endpoints, authentication, response validation and consistency checks.             |
+The repository separates runtime code, deployment configuration, verification
+and documentation:
+
+| Folder    | Responsibility and reason for separation                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`    | Runtime application code, divided into the responsibilities below.                                                                                                     |
+| `docker/` | Container support configuration, including the Secure MCP Tunnel configuration. The root `Dockerfile` and `compose.yaml` define image construction and service wiring. |
+| `tests/`  | Automated checks, fixtures and HTTP mocks. Verifies application behavior and integration contracts without live credentials.                                           |
+| `docs/`   | Supporting documentation assets, including architecture diagram sources and exported diagrams.                                                                         |
+
+Within `src/`, folders separate application behavior, external integration,
+protocol handling and data contracts:
+
+| Folder           | Responsibility and reason for separation                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app/`       | Bridge-specific behavior, grouped by feature: stream processing and workout workflows. Keeps these operations independent of MCP registration; feature-specific helpers such as FIT encoding stay beside their workflow. |
+| `src/http/`      | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                       |
+| `src/intervals/` | Intervals integration: configuration and the `IntervalsApi` adapter for endpoints, request mapping and response consistency checks, and zone warnings. Hides upstream API details from tool handlers.                    |
+| `src/mcp/`       | MCP server composition, tool registration and result formatting. Tool-specific schemas live in the tool module or an adjacent `.schemas.ts` file when larger.                                                            |
+| `src/schemas/`   | Shared data contracts and their derived TypeScript types in a flat directory; configuration validation stays with its loader.                                                                                            |
+
+`src/errors.ts` defines the shared exception hierarchy. Expected failures inherit
+from `AppError` and carry controlled messages supplied at the throw site.
+
+`src/index.ts` loads configuration and calls `startServer(config)` inside the
+entry-point `try/catch`, which handles synchronous startup failures.
+`src/mcp/server.ts` assembles the server and starts the SDK's `serveStdio`
+transport. The server factory constructs the client, registers tools and owns
+session-scoped state. The SDK owns protocol negotiation, transport startup and EOF teardown;
+SIGINT and SIGTERM request shutdown through its returned handle. SDK-reported
+failures are written to stderr. Transport lifecycle errors follow SDK
+semantics rather than a separate application transport wrapper.
 
 The MCP SDK supplies transport and dispatch. Supporting libraries supply schema
 validation (Zod), HTTP execution (Axios) and FIT encoding/decoding (Garmin SDK).
@@ -156,13 +182,31 @@ HTTPS. The host owns model communication, while the bridge owns Intervals access
 
 ### Data contracts and processing
 
-The shared result adapter returns the same successful object as structured content
-and JSON text for host compatibility. It encloses the application operation,
-including HTTP and tool-side processing. Known HTTP errors retain their sanitized
-message, while other exceptions use a fixed tool-specific message. Credentials,
-raw responses and arbitrary exception details do not reach the model.
+Each tool registers its operation through `toolHandler` in
+`src/mcp/tool-handler.ts`. This shared wrapper returns the same successful object
+as structured content and JSON text for host compatibility. It encloses the application operation,
+including HTTP and tool-side processing. Expected failures use responsibility-specific
+`AppError` subclasses with controlled messages supplied where they are thrown; unknown exceptions become a
+generic internal error. The shared tool boundary rethrows expected exceptions
+unchanged and replaces unexpected ones with a safe error. Wrapped execution failures retain
+their original exceptions and stacks through `Error.cause`. Expected schema
+validation failures use controlled messages without retaining Zod internals; the SDK exposes only
+the outer message. The MCP SDK converts
+handler exceptions into `isError` results; input validation and protocol errors
+also remain its responsibility. Output-schema validation happens after the
+application wrapper, so its diagnostics are SDK-generated; schema descriptions
+and custom validation messages must not contain secrets.
+HTTP error translation and publication state changes stay at their respective
+boundaries. Credentials, raw responses and arbitrary exception details do not
+reach the model.
 
-Response schemas select exposed fields. The Intervals client then enforces domain
+The MCP SDK validates tool inputs, and the HTTP adapter validates upstream
+responses before application processing. Internal client methods consume validated
+arguments without parsing them again. Workout preview accepts a branded, normalized
+`PlannedWorkout` and takes its own snapshot; direct callers must parse raw input
+before calling it. Configuration loading and stricter upstream time-stream checks
+remain separate validation boundaries. Response schemas select exposed fields.
+The Intervals client then enforces domain
 consistency, such as athlete identity, wellness date integrity and stream alignment.
 Missing observations remain absent or null. Wellness fitness/fatigue values come
 from Intervals rather than a fitness or medical-readiness model calculated here.
@@ -198,7 +242,7 @@ It cannot independently inspect conversation consent.
 ## Maintaining these boundaries
 
 Add endpoint integration and response contracts in the Intervals layer, then
-register a tool using the shared result adapter. Keep calculations independent of
+register a tool using the shared `toolHandler` wrapper. Keep calculations independent of
 transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.

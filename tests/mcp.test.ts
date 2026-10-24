@@ -1,3 +1,4 @@
+import { IntervalsApi } from '../src/intervals/api.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -155,16 +156,39 @@ describe('MCP recent activities tool', () => {
     expect(response).not.toHaveProperty('result.isError', true);
   });
 
-  it.each([0, 366, 1.5, '7'])('rejects invalid days %s before requesting', async (days) => {
+  it.each([
+    { name: 'list_recent_activities', arguments: { day: 7 } },
+    { name: 'get_athlete_settings', arguments: { extra: true } },
+    {
+      name: 'list_wellness',
+      arguments: { oldest: '2026-10-01', newest: '2026-10-02', extra: true },
+    },
+    {
+      name: 'get_activity_stream_statistics',
+      arguments: { activityId: 'i1', zones: [{ type: 'watts', boundaries: [100], extra: true }] },
+    },
+    { name: 'preview_planned_workout', arguments: { workout: plannedWorkout, extra: true } },
+  ])('rejects unknown input fields before HTTP: $name', async (params) => {
     const adapter = mockHttp();
     const request = await connect();
-    const response = await request('tools/call', {
-      name: 'list_recent_activities',
-      arguments: { days },
-    });
+    const response = await request('tools/call', params);
     expect(response).toHaveProperty('result.isError', true);
     expect(adapter).not.toHaveBeenCalled();
   });
+
+  it.each([0, -1, 366, 1.5, NaN, Infinity, '7'])(
+    'rejects invalid days %s before requesting',
+    async (days) => {
+      const adapter = mockHttp();
+      const request = await connect();
+      const response = await request('tools/call', {
+        name: 'list_recent_activities',
+        arguments: { days },
+      });
+      expect(response).toHaveProperty('result.isError', true);
+      expect(adapter).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([401, 403, 500])('reports HTTP %s as a sanitized tool error', async (status) => {
     mockHttp('test-secret response body', status);
@@ -179,6 +203,35 @@ describe('MCP recent activities tool', () => {
     expect(JSON.stringify(response)).not.toContain('test-secret');
   });
 
+  it('lets the SDK format sanitized unexpected handler exceptions as tool errors', async () => {
+    vi.spyOn(IntervalsApi.prototype, 'getRecentActivities').mockRejectedValue(
+      new TypeError('secret diagnostic'),
+    );
+    const request = await connect();
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    expect(response).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          { type: 'text', text: 'Unable to complete the operation due to an internal error.' },
+        ],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret');
+  });
+
+  it('keeps SDK output validation errors separate and excludes malformed output values', async () => {
+    vi.spyOn(IntervalsApi.prototype, 'getRecentActivities').mockResolvedValue([
+      { id: 'i42', moving_time: 'private-output-value' },
+    ] as unknown as Awaited<ReturnType<IntervalsApi['getRecentActivities']>>);
+    const request = await connect();
+    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(JSON.stringify(response)).toContain('Output validation error');
+    expect(JSON.stringify(response)).not.toContain('private-output-value');
+    expect(response).not.toHaveProperty('result.structuredContent');
+  });
+
   it('reports invalid upstream data without exposing its contents', async () => {
     mockHttp([{ name: 'private activity without id' }]);
     const request = await connect();
@@ -187,7 +240,7 @@ describe('MCP recent activities tool', () => {
     ).toMatchObject({
       result: {
         isError: true,
-        content: [{ type: 'text', text: 'Unable to retrieve valid Intervals activities.' }],
+        content: [{ type: 'text', text: 'API response does not match the expected schema.' }],
       },
     });
   });
@@ -397,17 +450,19 @@ describe('MCP activity details tool', () => {
     });
   });
 
-  it.each([{}, { activityId: '../i42' }])(
-    'rejects invalid inputs before requesting',
-    async (args) => {
-      const adapter = mockHttp();
-      const request = await connect();
-      expect(
-        await request('tools/call', { name: 'get_activity_details', arguments: args }),
-      ).toHaveProperty('result.isError', true);
-      expect(adapter).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    {},
+    { activityId: '' },
+    { activityId: '../i42' },
+    { activityId: 'i42?intervals=false' },
+  ])('rejects invalid inputs before requesting', async (args) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    expect(
+      await request('tools/call', { name: 'get_activity_details', arguments: args }),
+    ).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
 
   it('reports missing activities as sanitized HTTP errors', async () => {
     mockHttp('private activity contents', 404);
@@ -438,7 +493,7 @@ describe('MCP activity details tool', () => {
         content: [
           {
             type: 'text',
-            text: 'Unable to retrieve valid activity details. The activity may be unavailable through the Intervals API.',
+            text: 'API response does not match the expected schema.',
           },
         ],
       },
@@ -673,6 +728,8 @@ describe.each([
     { oldest: '2026-02-29', newest: '2026-03-01' },
     { oldest: '2026-10-13', newest: '2026-10-01' },
     { oldest: '2026-01-01', newest: '2026-04-01' },
+    { oldest: '2024-01-01', newest: '2024-03-31' },
+    { oldest: '2026-10-01T00:00:00', newest: '2026-10-13' },
   ])('rejects invalid dates before fetching %j', async (args) => {
     const adapter = mockHttp();
     const request = await connect();
@@ -699,6 +756,36 @@ describe.each([
 });
 
 describe('MCP planned workouts', () => {
+  it('normalizes workout input defaults before invoking the application', async () => {
+    const adapter = mockHttp();
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'preview_planned_workout',
+      arguments: {
+        workout: {
+          name: '  Easy workout  ',
+          sport: 'Run',
+          startDateLocal: plannedWorkout.startDateLocal,
+          steps: [{ name: '  Easy  ', duration: { type: 'time', seconds: 60 } }],
+        },
+      },
+    });
+    expect(response).toMatchObject({
+      result: {
+        structuredContent: {
+          status: 'ready',
+          timedSeconds: 60,
+          totalDurationKnown: true,
+          workout: {
+            name: 'Easy workout',
+            steps: [{ name: 'Easy', intensity: 'active', target: { type: 'open' } }],
+          },
+        },
+      },
+    });
+    expect(response).not.toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
   it('previews without a write and publishes the approved draft only once', async () => {
     const adapter = mockHttp(plannedEvent);
     const request = await connect();
@@ -751,7 +838,17 @@ describe('MCP planned workouts', () => {
         name: 'publish_planned_workout',
         arguments: { draftId: '00000000-0000-4000-8000-000000000000', approved: true },
       }),
-    ).toHaveProperty('result.isError', true);
+    ).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: 'Unknown draft; generate and review a preview in this server session first.',
+          },
+        ],
+      },
+    });
     expect(adapter).not.toHaveBeenCalled();
   });
   it('rejects unsupported preview steps before HTTP', async () => {
@@ -782,7 +879,7 @@ describe('MCP planned workouts', () => {
       });
       expect(published).toHaveProperty('result.isError', true);
       expect(JSON.stringify(published)).not.toContain('upstream private data');
-      expect(JSON.stringify(published)).toContain('inspect the Intervals calendar');
+      expect(JSON.stringify(published)).toContain('Inspect the Intervals calendar');
     }
     expect(adapter).toHaveBeenCalledTimes(1);
   });

@@ -1,6 +1,6 @@
-import { APIResponseValidationError } from '../src/api/errors.js';
+import { UpstreamDataError } from '../src/errors.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { IntervalsClient } from '../src/intervals/client.js';
+import { IntervalsApi } from '../src/intervals/api.js';
 import { loadIntervalsConfig } from '../src/intervals/config.js';
 import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
@@ -21,7 +21,7 @@ function setup(data: unknown = []) {
   const adapter = mockHttp(data);
   return {
     adapter,
-    client: new IntervalsClient(config),
+    client: new IntervalsApi(config),
   };
 }
 
@@ -32,7 +32,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('IntervalsClient activity details', () => {
+describe('IntervalsApi activity details', () => {
   it('requests interval data and returns only validated fields', async () => {
     const { client, adapter } = setup({ ...activityDetails, start_latlng: [47, 19] });
     expect(await client.getActivity('i42')).toEqual(activityDetails);
@@ -47,12 +47,6 @@ describe('IntervalsClient activity details', () => {
   it('preserves null and omitted measurements without inventing values', async () => {
     const data = { id: '123', moving_time: 0, average_heartrate: null, icu_intervals: [] };
     expect(await setup(data).client.getActivity('123')).toEqual(data);
-  });
-
-  it.each(['', '../i42', 'i42?intervals=false'])('rejects unsafe activity ID %j', async (id) => {
-    const { client, adapter } = setup(activityDetails);
-    await expect(client.getActivity(id)).rejects.toThrow('Invalid activity ID');
-    expect(adapter).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -72,7 +66,7 @@ describe('IntervalsClient activity details', () => {
   });
 });
 
-describe('IntervalsClient activity streams', () => {
+describe('IntervalsApi activity streams', () => {
   it('requests time with selected measurements and preserves missing data', async () => {
     const { client, adapter } = setup(activityStreams);
     expect(await client.getActivityStreams('i42')).toEqual({
@@ -94,13 +88,6 @@ describe('IntervalsClient activity streams', () => {
     expect(adapter.mock.calls[0]![0].params.types).toBe('time,altitude');
   });
 
-  it('rejects invalid identifiers and empty selections before requesting', async () => {
-    const { client, adapter } = setup();
-    await expect(client.getActivityStreams('../i42')).rejects.toThrow('Invalid activity ID');
-    await expect(client.getActivityStreams('i42', [])).rejects.toThrow('Invalid activity stream');
-    expect(adapter).not.toHaveBeenCalled();
-  });
-
   it.each([
     ['malformed data', [{ type: 'time', data: 'not an array' }]],
     ['duplicate streams', [activityStreams[0], activityStreams[0]]],
@@ -111,7 +98,7 @@ describe('IntervalsClient activity streams', () => {
   ])('rejects %s', async (_name, data) => {
     const operation = setup(data).client.getActivityStreams('i42');
     if (_name === 'malformed data') {
-      await expect(operation).rejects.toBeInstanceOf(APIResponseValidationError);
+      await expect(operation).rejects.toBeInstanceOf(UpstreamDataError);
     } else {
       await expect(operation).rejects.toThrow('Intervals API');
     }
@@ -202,7 +189,7 @@ describe('Intervals configuration', () => {
   });
 });
 
-describe('IntervalsClient', () => {
+describe('IntervalsApi', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-01-03T23:30:00Z'));
@@ -212,7 +199,7 @@ describe('IntervalsClient', () => {
     vi.stubEnv('INTERVALS_API_KEY', ' environment-key ');
     vi.stubEnv('INTERVALS_ATHLETE_ID', ' i456 ');
     const { adapter } = setup();
-    const client = new IntervalsClient();
+    const client = new IntervalsApi();
     expect(adapter).not.toHaveBeenCalled();
     await client.getRecentActivities();
     const request = adapter.mock.calls[0]![0];
@@ -224,13 +211,13 @@ describe('IntervalsClient', () => {
 
   it('rejects missing environment credentials during construction', () => {
     vi.stubEnv('INTERVALS_API_KEY', '');
-    expect(() => new IntervalsClient()).toThrow('Invalid Intervals configuration');
+    expect(() => new IntervalsApi()).toThrow('Invalid Intervals configuration');
   });
 
   it('accepts explicit configuration without reading environment credentials', async () => {
     vi.stubEnv('INTERVALS_API_KEY', '');
     const { adapter } = setup();
-    await new IntervalsClient({ ...config, athleteId: '0' }).getRecentActivities();
+    await new IntervalsApi({ ...config, athleteId: '0' }).getRecentActivities();
     expect(adapter.mock.calls[0]![0].url).toBe('/athlete/0/activities');
   });
 
@@ -264,7 +251,7 @@ describe('IntervalsClient', () => {
 
   it('uses the configured base URL and makes no request during construction', async () => {
     const adapter = mockHttp();
-    const client = new IntervalsClient({ ...config, baseURL: 'https://example.com/api' });
+    const client = new IntervalsApi({ ...config, baseURL: 'https://example.com/api' });
     expect(adapter).not.toHaveBeenCalled();
     await client.getRecentActivities();
     expect(adapter.mock.calls[0]![0].baseURL).toBe('https://example.com/api');
@@ -294,15 +281,6 @@ describe('IntervalsClient', () => {
     expect(await setup(data).client.getRecentActivities()).toEqual(data);
   });
 
-  it.each([0, -1, 366, 1.5, NaN, Infinity])(
-    'rejects invalid days %s before requesting',
-    async (days) => {
-      const { client, adapter } = setup();
-      await expect(client.getRecentActivities(days)).rejects.toThrow('days must be an integer');
-      expect(adapter).not.toHaveBeenCalled();
-    },
-  );
-
   it.each([{}, null, [{ name: 'missing id' }], [{ id: 'i1', distance: 'bad' }], 'not json'])(
     'rejects malformed responses',
     async (data) => {
@@ -323,7 +301,7 @@ describe('IntervalsClient', () => {
 
   it('propagates API client failures', async () => {
     mockHttp([], 503);
-    await expect(new IntervalsClient(config).getRecentActivities()).rejects.toMatchObject({
+    await expect(new IntervalsApi(config).getRecentActivities()).rejects.toMatchObject({
       name: 'HTTPError',
       status: 503,
     });

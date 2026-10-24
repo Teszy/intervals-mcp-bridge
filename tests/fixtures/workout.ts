@@ -1,5 +1,5 @@
-import type { PlannedWorkout } from '../../src/intervals/schemas.js';
-export const plannedWorkout: PlannedWorkout = {
+import { plannedWorkoutSchema } from '../../src/schemas/workouts.js';
+export const plannedWorkout = plannedWorkoutSchema.parse({
   name: 'Test run',
   sport: 'Run',
   startDateLocal: '2026-10-14T09:00:00',
@@ -23,7 +23,7 @@ export const plannedWorkout: PlannedWorkout = {
       target: { type: 'open' },
     },
   ],
-};
+});
 export const plannedEvent = {
   id: 42,
   category: 'WORKOUT' as const,

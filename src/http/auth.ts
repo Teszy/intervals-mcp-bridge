@@ -11,5 +11,3 @@ export interface BearerAuth {
 
 /** Explicit authentication scheme; omit auth for public endpoints. */
 export type Auth = BasicAuth | BearerAuth;
-
-export type QueryParams = Record<string, string | number | boolean | undefined>;

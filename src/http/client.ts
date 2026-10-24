@@ -1,10 +1,12 @@
-import { z } from 'zod';
+import { HTTPError, UpstreamDataError } from '../errors.js';
+import type { z } from 'zod';
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
-import { APIResponseValidationError, Forbidden, HTTPError, Unauthorized } from './errors.js';
-import type { Auth, QueryParams } from './types.js';
+import type { Auth } from './auth.js';
+
+export type QueryParams = Record<string, string | number | boolean | undefined>;
 
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
-export class APIClient {
+export class HTTPClient {
   readonly #baseURL: string;
   readonly #auth: Auth | undefined;
 
@@ -26,7 +28,7 @@ export class APIClient {
       });
       return response.data;
     });
-    return this.#validate(dataResult, schema);
+    return this.#validateResponse(schema, dataResult);
   }
 
   async post<S extends z.ZodType>(
@@ -41,7 +43,7 @@ export class APIClient {
       });
       return response.data;
     });
-    return this.#validate(dataResult, schema);
+    return this.#validateResponse(schema, dataResult);
   }
 
   async uploadFile<S extends z.ZodType>(
@@ -54,9 +56,11 @@ export class APIClient {
     return this.post(endpoint, schema, formData, signal);
   }
 
-  #validate<S extends z.ZodType>(data: unknown, schema: S): z.output<S> {
+  #validateResponse<S extends z.ZodType>(schema: S, data: unknown): z.output<S> {
     const result = schema.safeParse(data);
-    if (!result.success) throw new APIResponseValidationError(result.error.issues);
+    if (!result.success) {
+      throw new UpstreamDataError('API response does not match the expected schema.');
+    }
     return result.data;
   }
 
@@ -82,17 +86,9 @@ export class APIClient {
     try {
       return await request(this.#createClient());
     } catch (error: unknown) {
-      // Axios errors contain credentials and response bodies; omit the original cause.
-      throw this.#handleError(error);
+      // Preserve the original failure internally; boundaries expose only the controlled message.
+      if (!axios.isAxiosError(error)) throw error;
+      throw new HTTPError(error.response?.status, { cause: error });
     }
-  }
-
-  #handleError(error: unknown): HTTPError {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    if (status === 401) return new Unauthorized();
-    if (status === 403) return new Forbidden();
-    return status === undefined
-      ? new HTTPError()
-      : new HTTPError(`HTTP request failed (HTTP ${status}).`, status);
   }
 }

@@ -1,9 +1,15 @@
+import { toolHandler } from '../src/mcp/tool-handler.js';
+import { WorkoutError } from '../src/errors.js';
 import { Decoder, Stream } from '@garmin/fitsdk';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { plannedWorkoutSchema } from '../src/intervals/schemas.js';
-import { IntervalsClient } from '../src/intervals/client.js';
-import { encodeWorkoutFit } from '../src/workouts/fit.js';
-import { WorkoutDrafts } from '../src/workouts/drafts.js';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import {
+  plannedWorkoutSchema,
+  type PlannedWorkout,
+  type PlannedWorkoutInput,
+} from '../src/schemas/workouts.js';
+import { IntervalsApi } from '../src/intervals/api.js';
+import { encodeWorkoutFit } from '../src/app/workouts/fit.js';
+import { WorkoutDrafts } from '../src/app/workouts/drafts.js';
 import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { mockHttp } from './helpers/http.js';
 const config = {
@@ -14,6 +20,17 @@ const config = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('FIT planned workouts', () => {
+  it('requires a validated workout type for preview, FIT encoding and publication', () => {
+    expectTypeOf<
+      PlannedWorkoutInput extends PlannedWorkout ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<Parameters<WorkoutDrafts['preview']>[0]>().toEqualTypeOf<PlannedWorkout>();
+    expectTypeOf<Parameters<typeof encodeWorkoutFit>[0]>().toEqualTypeOf<PlannedWorkout>();
+    expectTypeOf<
+      Parameters<IntervalsApi['publishPlannedWorkout']>[0]
+    >().toEqualTypeOf<PlannedWorkout>();
+    expectTypeOf(plannedWorkoutSchema.parse(plannedWorkout)).toEqualTypeOf<PlannedWorkout>();
+  });
   it('round-trips required messages, Unicode, time/distance scales and absolute targets with valid CRC', () => {
     const decoder = new Decoder(Stream.fromByteArray(encodeWorkoutFit(plannedWorkout)));
     expect(decoder.checkIntegrity()).toBe(true);
@@ -55,7 +72,9 @@ describe('FIT planned workouts', () => {
         { ...plannedWorkout.steps[0]!, target: { type: 'power' as const, low: 200, high: 250 } },
       ],
     };
-    const { messages } = new Decoder(Stream.fromByteArray(encodeWorkoutFit(workout))).read();
+    const { messages } = new Decoder(
+      Stream.fromByteArray(encodeWorkoutFit(plannedWorkoutSchema.parse(workout))),
+    ).read();
     expect(messages.workoutMesgs?.[0]).toHaveProperty('sport', 'cycling');
     expect(messages.workoutStepMesgs?.[0]).toMatchObject({
       targetType: 'power',
@@ -81,6 +100,45 @@ describe('FIT planned workouts', () => {
 });
 
 describe('workout draft publication', () => {
+  it('owns a snapshot independent of later caller mutations', () => {
+    const drafts = new WorkoutDrafts();
+    const input = structuredClone(plannedWorkout);
+    const preview = drafts.preview(input);
+    input.name = 'Changed after preview';
+    input.steps[0]!.name = 'Changed step';
+    const repeated = drafts.preview(plannedWorkout);
+    expect(repeated.draftId).toBe(preview.draftId);
+    expect(repeated.workout).toEqual(plannedWorkout);
+    expect(repeated.fit).toEqual(preview.fit);
+  });
+  it('uses a normalized workout for hashing, encoding and storing the reviewed workout', () => {
+    const drafts = new WorkoutDrafts();
+    const input = {
+      ...plannedWorkout,
+      name: '  Default targets  ',
+      steps: [{ name: '  Easy  ', duration: { type: 'time' as const, seconds: 60 } }],
+    };
+    const preview = drafts.preview(plannedWorkoutSchema.parse(input));
+    expect(preview.workout.name).toBe('Default targets');
+    expect(preview.workout.steps).toEqual([
+      {
+        name: 'Easy',
+        duration: { type: 'time', seconds: 60 },
+        intensity: 'active',
+        target: { type: 'open' },
+      },
+    ]);
+    expect(drafts.preview(preview.workout).draftId).toBe(preview.draftId);
+    const { messages, errors } = new Decoder(
+      Stream.fromByteArray(encodeWorkoutFit(preview.workout)),
+    ).read();
+    expect(errors).toEqual([]);
+    expect(messages.workoutStepMesgs?.[0]).toMatchObject({
+      intensity: 'active',
+      targetType: 'open',
+      durationTime: 60,
+    });
+  });
   it('previews without HTTP and submits exact FIT bytes only once', async () => {
     const adapter = mockHttp({ ...plannedEvent, private: 'secret' });
     const drafts = new WorkoutDrafts();
@@ -95,7 +153,7 @@ describe('workout draft publication', () => {
     expect(drafts.preview(plannedWorkout).draftId).toBe(preview.draftId);
     // Mutating a returned preview must not alter the stored draft.
     preview.workout.name = 'Changed externally';
-    const client = new IntervalsClient(config);
+    const client = new IntervalsApi(config);
     expect(await drafts.publish(preview.draftId, client)).toEqual({
       draftId: preview.draftId,
       event: plannedEvent,
@@ -124,7 +182,9 @@ describe('workout draft publication', () => {
   it('requires a new draft after changes and reports known duration for time-only workouts', () => {
     const drafts = new WorkoutDrafts();
     const first = drafts.preview(plannedWorkout);
-    const second = drafts.preview({ ...plannedWorkout, steps: [plannedWorkout.steps[0]!] });
+    const second = drafts.preview(
+      plannedWorkoutSchema.parse({ ...plannedWorkout, steps: [plannedWorkout.steps[0]!] }),
+    );
     expect(second.draftId).not.toBe(first.draftId);
     expect(second).toMatchObject({ timedSeconds: 600, totalDurationKnown: true });
   });
@@ -132,7 +192,7 @@ describe('workout draft publication', () => {
     const adapter = mockHttp(plannedEvent);
     const first = new WorkoutDrafts().preview(plannedWorkout);
     await expect(
-      new WorkoutDrafts().publish(first.draftId, new IntervalsClient(config)),
+      new WorkoutDrafts().publish(first.draftId, new IntervalsApi(config)),
     ).rejects.toThrow('Unknown draft');
     expect(adapter).not.toHaveBeenCalled();
   });
@@ -148,9 +208,9 @@ describe('workout draft publication', () => {
     });
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsClient(config);
+    const client = new IntervalsApi(config);
     const first = drafts.publish(draftId, client);
-    await expect(drafts.publish(draftId, client)).rejects.toThrow('in progress');
+    await expect(drafts.publish(draftId, client)).rejects.toBeInstanceOf(WorkoutError);
     finish();
     await first;
     expect(adapter).toHaveBeenCalledTimes(1);
@@ -159,8 +219,10 @@ describe('workout draft publication', () => {
     const adapter = mockHttp({ private: 'secret' }, status);
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsClient(config);
-    await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
+    const client = new IntervalsApi(config);
+    const publication = toolHandler(async () => drafts.publish(draftId, client))();
+    await expect(publication).rejects.toThrow('uncertain');
+    await expect(publication).rejects.toHaveProperty('cause');
     await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
     expect(drafts.preview(plannedWorkout).status).toBe('unknown');
     expect(adapter).toHaveBeenCalledTimes(1);

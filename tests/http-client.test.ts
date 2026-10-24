@@ -1,19 +1,14 @@
+import { HTTPError, UpstreamDataError } from '../src/errors.js';
 import { z } from 'zod';
 import axios, { AxiosError } from 'axios';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { APIClient } from '../src/api/client.js';
-import type { BasicAuth, BearerAuth } from '../src/api/types.js';
-import {
-  APIResponseValidationError,
-  Forbidden,
-  HTTPError,
-  Unauthorized,
-} from '../src/api/errors.js';
+import { HTTPClient } from '../src/http/client.js';
+import type { BasicAuth, BearerAuth } from '../src/http/auth.js';
 import { mockHttp } from './helpers/http.js';
 
 function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {
   const adapter = mockHttp(data, status);
-  const client = new APIClient(
+  const client = new HTTPClient(
     'https://api.example.com/v1',
     authToken === undefined ? undefined : { type: 'bearer', token: authToken },
   );
@@ -22,7 +17,7 @@ function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('APIClient', () => {
+describe('HTTPClient', () => {
   it('requests public endpoints with query parameters and returns response data', async () => {
     const { client, adapter } = setup();
     expect(await client.get('/public', z.unknown(), { page: 1, active: true })).toEqual({
@@ -52,7 +47,7 @@ describe('APIClient', () => {
   it('encodes Basic credentials and copies them at construction', async () => {
     const { adapter } = setup();
     const auth: BasicAuth = { type: 'basic', username: 'API_KEY', password: 'secret-key' };
-    const client = new APIClient('https://api.example.com', auth);
+    const client = new HTTPClient('https://api.example.com', auth);
     auth.password = 'changed';
     await client.get('', z.unknown());
     const headers = adapter.mock.calls[0]![0].headers;
@@ -65,7 +60,7 @@ describe('APIClient', () => {
   it('copies Bearer credentials at construction', async () => {
     const { adapter } = setup();
     const auth: BearerAuth = { type: 'bearer', token: 'original' };
-    const client = new APIClient('https://api.example.com', auth);
+    const client = new HTTPClient('https://api.example.com', auth);
     auth.token = 'changed';
     await client.get('', z.unknown());
     expect(adapter.mock.calls[0]![0].headers.get('Authorization')).toBe('Bearer original');
@@ -105,7 +100,7 @@ describe('APIClient', () => {
 
   it('supports default options and endpoint arguments', async () => {
     const { adapter } = setup();
-    const client = new APIClient('https://api.example.com');
+    const client = new HTTPClient('https://api.example.com');
     await client.get('', z.unknown());
     await client.post('', z.unknown());
     expect(adapter.mock.calls.map(([request]) => request.url)).toEqual(['', '']);
@@ -161,8 +156,8 @@ describe('APIClient', () => {
 
   it.each([
     [302, HTTPError],
-    [401, Unauthorized],
-    [403, Forbidden],
+    [401, HTTPError],
+    [403, HTTPError],
     [429, HTTPError],
     [500, HTTPError],
   ] as const)('maps HTTP %s to a typed Error subclass', async (status, ErrorType) => {
@@ -176,25 +171,51 @@ describe('APIClient', () => {
     });
     expect(error).not.toHaveProperty('config');
     expect(error).not.toHaveProperty('response');
-    expect(error).not.toHaveProperty('cause');
+    expect(error).toHaveProperty('cause');
     expect(String(error)).not.toContain('secret');
   });
 
   it.each([
-    new Error('secret-token'),
     new AxiosError('secret-token', 'ERR_NETWORK'),
     new AxiosError('secret-token', 'ECONNABORTED'),
-  ])('sanitizes network and unexpected errors', async (error) => {
+  ])('sanitizes network errors', async (error) => {
     const { client, adapter } = setup();
     adapter.mockRejectedValue(error);
-    await expect(client.uploadFile('/files', z.unknown(), new FormData())).rejects.toMatchObject({
+    const request = client.uploadFile('/files', z.unknown(), new FormData());
+    await expect(request).rejects.toMatchObject({
       name: 'HTTPError',
       message: 'HTTP request failed: network error or timeout.',
     });
+    await expect(request).rejects.toHaveProperty('cause', error);
+    await expect(request).rejects.toHaveProperty('cause.stack', error.stack);
+  });
+});
+
+describe('unexpected HTTP failures', () => {
+  it('preserves unexpected exceptions for the boundary to classify as internal errors', async () => {
+    const { client, adapter } = setup();
+    const error = new TypeError('private diagnostic');
+    adapter.mockRejectedValue(error);
+    await expect(client.get('/items', z.unknown())).rejects.toBe(error);
   });
 });
 
 describe('API response validation', () => {
+  it('does not turn unexpected schema exceptions into data validation errors', async () => {
+    const { client } = setup('valid input');
+    const failure = new TypeError('Unexpected transform failure');
+    const schema = z.string().transform(() => {
+      throw failure;
+    });
+    await expect(client.get('/items', schema)).rejects.toBe(failure);
+  });
+
+  it('applies defaults and returns the inferred output type', async () => {
+    const { client } = setup({ extra: 'discard' });
+    const result = await client.get('/items', z.object({ count: z.number().default(7) }));
+    expectTypeOf(result).toEqualTypeOf<{ count: number }>();
+    expect(result).toEqual({ count: 7 });
+  });
   it('infers transformed output types and strips unselected fields', async () => {
     const { client } = setup({ count: '42', secret: 'private' });
     const schema = z.object({ count: z.string().transform(Number) });
@@ -215,11 +236,10 @@ describe('API response validation', () => {
             ? client.post('/items', schema, {})
             : client.uploadFile('/files', schema, new FormData());
       const error: unknown = await operation.catch((error: unknown) => error);
-      expect(error).toBeInstanceOf(APIResponseValidationError);
+      expect(error).toBeInstanceOf(UpstreamDataError);
       expect(error).not.toBeInstanceOf(HTTPError);
       expect(error).toMatchObject({
-        name: 'APIResponseValidationError',
-        issues: [{ code: 'invalid_type', path: ['count'] }],
+        name: 'UpstreamDataError',
       });
       expect(error).not.toHaveProperty('cause');
       expect(error).not.toHaveProperty('response');
@@ -228,11 +248,12 @@ describe('API response validation', () => {
     },
   );
 
-  it('keeps validation messages and input metadata out of diagnostics', async () => {
+  it('omits raw validation details from expected schema failures', async () => {
     const { client } = setup('secret value');
     const schema = z.string().refine(() => false, 'private diagnostic');
     const error: unknown = await client.get('/items', schema).catch((error: unknown) => error);
-    expect(error).toMatchObject({ issues: [{ code: 'custom', path: [] }] });
+    expect(error).toBeInstanceOf(UpstreamDataError);
+    expect(error).not.toHaveProperty('issues');
     expect(JSON.stringify(error)).not.toContain('private');
     expect(JSON.stringify(error)).not.toContain('secret');
   });
@@ -240,7 +261,7 @@ describe('API response validation', () => {
   it('keeps transport failures distinct even with a response schema', async () => {
     const { client } = setup({ count: 'invalid' }, 403);
     await expect(client.get('/items', z.object({ count: z.number() }))).rejects.toBeInstanceOf(
-      Forbidden,
+      HTTPError,
     );
   });
 });

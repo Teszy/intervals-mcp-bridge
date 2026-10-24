@@ -1,43 +1,40 @@
-import { APIClient } from '../api/client.js';
-import type { BasicAuth } from '../api/types.js';
+import { UpstreamDataError } from '../errors.js';
+import { addZoneWarnings } from './zone-warnings.js';
+import { HTTPClient } from '../http/client.js';
+import type { BasicAuth } from '../http/auth.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
+import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from '../schemas/events.js';
+import type { PlannedWorkout } from '../schemas/workouts.js';
 import {
-  plannedWorkoutEventSchema,
-  plannedWorkoutSchema,
-  type PlannedWorkout,
-  type PlannedWorkoutEvent,
   activityWorkloadSchema,
-  wellnessSchema,
-  trainingDateRangeSchema,
-  type TrainingDateRange,
   type ActivityWorkload,
-  type Wellness,
+  activityDetailsSchema,
+  activitySummarySchema,
+  type ActivityDetails,
+  type ActivitySummary,
+} from '../schemas/activities.js';
+import { wellnessSchema, type Wellness } from '../schemas/wellness.js';
+import type { TrainingDateRange } from '../schemas/date-range.js';
+import {
   athleteSettingsResponseSchema,
   type AthleteSettings,
-  activityDetailsSchema,
-  activityIdSchema,
-  activitySchema,
-  activityStreamTypesSchema,
+} from '../schemas/athlete-settings.js';
+import {
   activityStreamsResponseSchema,
   defaultActivityStreamTypes,
   type ActivityStreams,
   type ActivityStreamType,
-  type ActivityDetails,
-  type ActivitySummary,
-} from './schemas.js';
+} from '../schemas/streams.js';
 
-export { activitySchema } from './schemas.js';
-export type {
-  ActivityDetails,
-  ActivitySummary,
-  ActivityStreams,
-  ActivityStreamType,
-} from './schemas.js';
+export { activitySummarySchema } from '../schemas/activities.js';
+export type { ActivityDetails, ActivitySummary } from '../schemas/activities.js';
+export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js';
 
-export class IntervalsClient {
+/** Internal adapter: callers validate inputs at the application boundary; responses are validated here. */
+export class IntervalsApi {
   readonly #config: IntervalsConfig;
-  readonly #api: APIClient;
+  readonly #http: HTTPClient;
 
   constructor(config: IntervalsConfig = loadIntervalsConfig()) {
     this.#config = { ...config };
@@ -46,7 +43,7 @@ export class IntervalsClient {
       username: 'API_KEY',
       password: this.#config.apiKey,
     };
-    this.#api = new APIClient(this.#config.baseURL, basicAuth);
+    this.#http = new HTTPClient(this.#config.baseURL, basicAuth);
   }
 
   /** Create a planned calendar workout from a validated FIT preview. No automatic retries. */
@@ -55,15 +52,14 @@ export class IntervalsClient {
     fit: Uint8Array,
     externalId: string,
   ): Promise<PlannedWorkoutEvent> {
-    const plan = plannedWorkoutSchema.parse(workout);
-    return this.#api.post(
+    return this.#http.post(
       `/athlete/${this.#config.athleteId}/events?upsertOnUid=false`,
       plannedWorkoutEventSchema,
       {
         category: 'WORKOUT',
-        type: plan.sport,
-        name: plan.name,
-        start_date_local: plan.startDateLocal,
+        type: workout.sport,
+        name: workout.name,
+        start_date_local: workout.startDateLocal,
         external_id: externalId,
         filename: 'workout.fit',
         file_contents_base64: Buffer.from(fit).toString('base64'),
@@ -72,9 +68,8 @@ export class IntervalsClient {
   }
 
   /** Fetch session workload in an inclusive athlete-local date range. */
-  async getActivityWorkload(range: TrainingDateRange): Promise<ActivityWorkload[]> {
-    const dates = trainingDateRangeSchema.parse(range);
-    return this.#api.get(
+  async getActivityWorkload(dates: TrainingDateRange): Promise<ActivityWorkload[]> {
+    return this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activityWorkloadSchema),
       dates,
@@ -82,9 +77,8 @@ export class IntervalsClient {
   }
 
   /** Fetch recorded daily wellness and upstream fitness values, without filling gaps. */
-  async getWellness(range: TrainingDateRange): Promise<Wellness[]> {
-    const dates = trainingDateRangeSchema.parse(range);
-    const records = await this.#api.get(
+  async getWellness(dates: TrainingDateRange): Promise<Wellness[]> {
+    const records = await this.#http.get(
       `/athlete/${this.#config.athleteId}/wellness`,
       z.array(wellnessSchema),
       dates,
@@ -92,7 +86,9 @@ export class IntervalsClient {
     const seen = new Set<string>();
     for (const record of records) {
       if (record.id < dates.oldest || record.id > dates.newest || seen.has(record.id)) {
-        throw new Error('Intervals API returned duplicate or out-of-range wellness dates.');
+        throw new UpstreamDataError(
+          'Intervals API returned duplicate or out-of-range wellness dates.',
+        );
       }
       seen.add(record.id);
     }
@@ -101,27 +97,24 @@ export class IntervalsClient {
 
   /** Fetch current settings, exposing only training context fields. */
   async getAthleteSettings(): Promise<AthleteSettings> {
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}`,
       athleteSettingsResponseSchema,
     );
     if (this.#config.athleteId !== '0' && data.id !== this.#config.athleteId) {
-      throw new Error('Intervals API returned settings for a different athlete.');
+      throw new UpstreamDataError('Intervals API returned settings for a different athlete.');
     }
-    return data;
+    return addZoneWarnings(data);
   }
 
   /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
   async getRecentActivities(days = 7): Promise<ActivitySummary[]> {
-    if (!Number.isInteger(days) || days < 1 || days > 365) {
-      throw new Error('days must be an integer between 1 and 365.');
-    }
     const newest = new Date();
     const oldest = new Date(newest);
     oldest.setUTCDate(oldest.getUTCDate() - days + 1);
-    const data = await this.#api.get(
+    const data = await this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
-      z.array(activitySchema),
+      z.array(activitySummarySchema),
       {
         oldest: oldest.toISOString().slice(0, 10),
         newest: newest.toISOString().slice(0, 10),
@@ -133,18 +126,15 @@ export class IntervalsClient {
 
   /** Fetch session metrics and detected work/recovery intervals for one activity. */
   async getActivity(activityId: string): Promise<ActivityDetails> {
-    const id = activityIdSchema.safeParse(activityId);
-    if (!id.success) throw new Error('Invalid activity ID.');
-
-    const data = await this.#api.get(
-      `/activity/${encodeURIComponent(id.data)}`,
+    const data = await this.#http.get(
+      `/activity/${encodeURIComponent(activityId)}`,
       activityDetailsSchema,
       {
         intervals: true,
       },
     );
-    if (data.id !== id.data) {
-      throw new Error('Intervals API returned details for a different activity.');
+    if (data.id !== activityId) {
+      throw new UpstreamDataError('Intervals API returned details for a different activity.');
     }
     return data;
   }
@@ -154,14 +144,10 @@ export class IntervalsClient {
     activityId: string,
     types: ActivityStreamType[] = defaultActivityStreamTypes,
   ): Promise<ActivityStreams> {
-    const id = activityIdSchema.safeParse(activityId);
-    if (!id.success) throw new Error('Invalid activity ID.');
-    const selection = activityStreamTypesSchema.safeParse(types);
-    if (!selection.success) throw new Error('Invalid activity stream selection.');
-    const requestedTypes = [...new Set(selection.data)];
+    const requestedTypes = [...new Set(types)];
 
-    const data = await this.#api.get(
-      `/activity/${encodeURIComponent(id.data)}/streams.json`,
+    const data = await this.#http.get(
+      `/activity/${encodeURIComponent(activityId)}/streams.json`,
       activityStreamsResponseSchema,
       {
         types: ['time', ...requestedTypes].join(','),
@@ -171,12 +157,15 @@ export class IntervalsClient {
 
     const byType = new Map(data.map((stream) => [stream.type, stream.data]));
     if (byType.size !== data.length) {
-      throw new Error('Intervals API returned duplicate activity streams.');
+      throw new UpstreamDataError('Intervals API returned duplicate activity streams.');
     }
-    const time = z.array(z.number().nonnegative()).min(1).safeParse(byType.get('time'));
-    if (!time.success) throw new Error('Intervals API returned no usable activity timestamps.');
-    if (time.data.some((value, index) => index > 0 && value <= time.data[index - 1]!)) {
-      throw new Error('Intervals API returned unordered activity timestamps.');
+    const timestamps = z.array(z.number().nonnegative()).min(1).safeParse(byType.get('time'));
+    if (!timestamps.success) {
+      throw new UpstreamDataError('Intervals API returned no usable activity timestamps.');
+    }
+    const time = timestamps.data;
+    if (time.some((value, index) => index > 0 && value <= time[index - 1]!)) {
+      throw new UpstreamDataError('Intervals API returned unordered activity timestamps.');
     }
 
     const streams: ActivityStreams['streams'] = [];
@@ -187,12 +176,12 @@ export class IntervalsClient {
         missingStreams.push(type);
         continue;
       }
-      if (values.length !== time.data.length) {
-        throw new Error('Intervals API returned misaligned activity streams.');
+      if (values.length !== time.length) {
+        throw new UpstreamDataError('Intervals API returned misaligned activity streams.');
       }
       streams.push({ type, data: values });
       if (values.every((value) => value === null)) missingStreams.push(type);
     }
-    return { time: time.data, streams, missingStreams };
+    return { time, streams, missingStreams };
   }
 }

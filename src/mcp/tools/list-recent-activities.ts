@@ -1,27 +1,31 @@
-import type { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import type { IntervalsClient } from '../../intervals/client.js';
-import { activitySchema } from '../../intervals/schemas.js';
-import { toolResult } from '../result.js';
+import { activitySummarySchema } from '../../schemas/activities.js';
+import type { McpServer } from '@modelcontextprotocol/server';
 
-const inputSchema = z.object({ days: z.number().int().min(1).max(365).default(7) });
-const outputSchema = z.object({ activities: z.array(activitySchema) });
+import type { IntervalsApi } from '../../intervals/api.js';
 
-export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsClient): void {
+import { toolHandler } from '../tool-handler.js';
+
+const listRecentActivitiesInputSchema = z.strictObject({
+  // Number of recent UTC calendar dates to include, counting today.
+  days: z.number().int().min(1).max(365).default(7),
+});
+
+const listRecentActivitiesOutputSchema = z.object({
+  activities: z.array(activitySummarySchema),
+});
+
+export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
     'list_recent_activities',
     {
       title: 'Recent activities',
       description:
         'List recent Intervals.icu activities for the configured athlete to find activity IDs for the details and stream tools. Includes today; date bounds use UTC. Distance is in meters and moving_time in seconds.',
-      inputSchema,
-      outputSchema,
+      inputSchema: listRecentActivitiesInputSchema,
+      outputSchema: listRecentActivitiesOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ days }) =>
-      toolResult(
-        async () => ({ activities: await client.getRecentActivities(days) }),
-        'Unable to retrieve valid Intervals activities.',
-      ),
+    toolHandler(async ({ days }) => ({ activities: await client.getRecentActivities(days) })),
   );
 }

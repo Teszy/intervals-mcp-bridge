@@ -1,4 +1,3 @@
-import { parseWithError } from '../validation.js';
 import { UpstreamDataError } from '../errors.js';
 import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
 import { HTTPClient } from '../http/client.js';
@@ -160,12 +159,11 @@ export class IntervalsApi {
     if (byType.size !== data.length) {
       throw new UpstreamDataError('Intervals API returned duplicate activity streams.');
     }
-    const time = parseWithError(
-      z.array(z.number().nonnegative()).min(1),
-      byType.get('time'),
-      (cause) =>
-        new UpstreamDataError('Intervals API returned no usable activity timestamps.', { cause }),
-    );
+    const timestamps = z.array(z.number().nonnegative()).min(1).safeParse(byType.get('time'));
+    if (!timestamps.success) {
+      throw new UpstreamDataError('Intervals API returned no usable activity timestamps.');
+    }
+    const time = timestamps.data;
     if (time.some((value, index) => index > 0 && value <= time[index - 1]!)) {
       throw new UpstreamDataError('Intervals API returned unordered activity timestamps.');
     }

@@ -201,6 +201,21 @@ describe('unexpected HTTP failures', () => {
 });
 
 describe('API response validation', () => {
+  it('does not turn unexpected schema exceptions into data validation errors', async () => {
+    const { client } = setup('valid input');
+    const failure = new TypeError('Unexpected transform failure');
+    const schema = z.string().transform(() => {
+      throw failure;
+    });
+    await expect(client.get('/items', schema)).rejects.toBe(failure);
+  });
+
+  it('applies defaults and returns the inferred output type', async () => {
+    const { client } = setup({ extra: 'discard' });
+    const result = await client.get('/items', z.object({ count: z.number().default(7) }));
+    expectTypeOf(result).toEqualTypeOf<{ count: number }>();
+    expect(result).toEqual({ count: 7 });
+  });
   it('infers transformed output types and strips unselected fields', async () => {
     const { client } = setup({ count: '42', secret: 'private' });
     const schema = z.object({ count: z.string().transform(Number) });
@@ -226,14 +241,14 @@ describe('API response validation', () => {
       expect(error).toMatchObject({
         name: 'UpstreamDataError',
       });
-      expect(error).toHaveProperty('cause.issues');
+      expect(error).not.toHaveProperty('cause');
       expect(error).not.toHaveProperty('response');
       expect(JSON.stringify(error)).not.toContain('secret');
       expect(String(error)).not.toContain('secret');
     },
   );
 
-  it('keeps validation messages and input metadata out of diagnostics', async () => {
+  it('omits raw validation details from expected schema failures', async () => {
     const { client } = setup('secret value');
     const schema = z.string().refine(() => false, 'private diagnostic');
     const error: unknown = await client.get('/items', schema).catch((error: unknown) => error);

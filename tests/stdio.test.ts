@@ -1,109 +1,117 @@
-import { InMemoryTransport, McpServer } from '@modelcontextprotocol/server';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { startStdioServer } from '../src/mcp/stdio.js';
 
-const originalExitCode = process.exitCode;
-const handles: ReturnType<typeof startStdioServer>[] = [];
+const entry = fileURLToPath(new URL('../src/index.ts', import.meta.url));
+type ServerProcess = {
+  child: ChildProcessWithoutNullStreams;
+  exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+  readonly stdout: string;
+  readonly stderr: string;
+};
+const children: ServerProcess[] = [];
+
+function launch(env: NodeJS.ProcessEnv = {}): ServerProcess {
+  const child = spawn(process.execPath, ['--import', 'tsx', entry], {
+    env: {
+      ...process.env,
+      INTERVALS_API_KEY: 'test-key',
+      INTERVALS_ATHLETE_ID: 'i12345',
+      INTERVALS_BASE_URL: 'https://intervals.icu/api/v1',
+      ...env,
+    },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    stderr += chunk;
+  });
+  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+    (resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve({ code, signal }));
+    },
+  );
+  const server = {
+    child,
+    exited,
+    get stdout() {
+      return stdout;
+    },
+    get stderr() {
+      return stderr;
+    },
+  };
+  children.push(server);
+  return server;
+}
+
 afterEach(async () => {
-  await Promise.allSettled(handles.splice(0).map((h) => h.close()));
-  process.exitCode = originalExitCode;
-  vi.restoreAllMocks();
+  for (const { child } of children) {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }
+  await Promise.all(children.splice(0).map((server) => server.exited));
 });
 
-describe('stdio lifecycle errors', () => {
-  it.each([false, true])(
-    'closes the transport and sets failure status for deferred factory failures (async=%s)',
-    async (asyncFailure) => {
-      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const [client, transport] = InMemoryTransport.createLinkedPair();
-      const closed = vi.spyOn(transport, 'close');
-      const failure = new TypeError('secret registration details');
-      const handle = startStdioServer(() => {
-        if (asyncFailure) return Promise.reject(failure);
-        throw failure;
-      }, transport);
-      handles.push(handle);
-      await client.start();
-      await client.send({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-11-25',
-          capabilities: {},
-          clientInfo: { name: 'test', version: '1' },
-        },
-      });
-      await vi.waitFor(() => expect(closed).toHaveBeenCalled());
-      expect(process.exitCode).toBe(1);
-      expect(log.mock.calls).toHaveLength(1);
-      expect(log).toHaveBeenCalledWith('Unable to initialize MCP server.');
-      expect(JSON.stringify(log.mock.calls)).not.toContain('secret');
-      const closeCount = closed.mock.calls.length;
-      await handle.close();
-      expect(closed).toHaveBeenCalledTimes(closeCount);
+async function initialize(server: ReturnType<typeof launch>) {
+  server.child.stdin.write(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 'stdio-test', version: '1' },
+      },
+    }) + '\n',
+  );
+  await vi.waitFor(() => expect(server.stdout).toContain('"id":1'), { timeout: 5000 });
+  const response = JSON.parse(server.stdout.trim().split('\n')[0]!);
+  expect(response).toHaveProperty('result.serverInfo.name', 'intervals-mcp-bridge');
+  server.child.stdin.write(
+    JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n',
+  );
+}
+
+describe('SDK stdio entry point', () => {
+  it('serves real stdio requests and exits cleanly on EOF', async () => {
+    const server = launch();
+    await initialize(server);
+    server.child.stdin.write(
+      JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }) + '\n',
+    );
+    await vi.waitFor(() => expect(server.stdout).toContain('"id":2'), { timeout: 5000 });
+    const responses = server.stdout
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(responses.find((response) => response.id === 2)).toHaveProperty('result.tools');
+    server.child.stdin.end();
+    await expect(server.exited).resolves.toEqual({ code: 0, signal: null });
+    expect(server.stderr).toBe('');
+  });
+
+  it.each(['SIGINT', 'SIGTERM'] as const)(
+    'shuts down through the SDK handle on %s',
+    async (signal) => {
+      const server = launch();
+      await initialize(server);
+      server.child.kill(signal);
+      await expect(server.exited).resolves.toEqual({ code: 0, signal: null });
+      expect(server.stderr).toBe('');
     },
   );
 
-  it.each([false, true])(
-    'fails and closes when transport startup throws (async=%s)',
-    async (asyncFailure) => {
-      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const [, transport] = InMemoryTransport.createLinkedPair();
-      const failure = new Error('secret startup details');
-      vi.spyOn(transport, 'start').mockImplementation(() => {
-        if (asyncFailure) return Promise.reject(failure);
-        throw failure;
-      });
-      const closed = vi.spyOn(transport, 'close');
-      const factory = vi.fn(() => new McpServer({ name: 'test', version: '1' }));
-      const handle = startStdioServer(factory, transport);
-      handles.push(handle);
-      await vi.waitFor(() => expect(closed).toHaveBeenCalled());
-      await handle.close();
-      expect(process.exitCode).toBe(1);
-      expect(factory).not.toHaveBeenCalled();
-      expect(log).toHaveBeenCalledWith('Unable to start MCP transport.');
-      expect(log).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(log.mock.calls)).not.toContain('secret');
-    },
-  );
-
-  it('rejects close and sets a failing exit status even when the SDK absorbs the transport rejection', async () => {
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const [, transport] = InMemoryTransport.createLinkedPair();
-    const failure = new Error('secret close details');
-    const closed = vi.spyOn(transport, 'close').mockRejectedValue(failure);
-    const handle = startStdioServer(() => new McpServer({ name: 'test', version: '1' }), transport);
-    handles.push(handle);
-    const closing = handle.close();
-    await expect(closing).rejects.toThrow('Unable to close MCP transport.');
-    await expect(closing).rejects.toHaveProperty('cause', failure);
-    expect(handle.close()).toBe(closing);
-    expect(process.exitCode).toBe(1);
-    expect(closed).toHaveBeenCalledTimes(1);
-    expect(log).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(log.mock.calls)).not.toContain('secret');
-  });
-
-  it('closes successfully without changing exit status', async () => {
-    const [, transport] = InMemoryTransport.createLinkedPair();
-    const handle = startStdioServer(() => new McpServer({ name: 'test', version: '1' }), transport);
-    handles.push(handle);
-    await expect(handle.close()).resolves.toBeUndefined();
-    expect(process.exitCode).toBe(originalExitCode);
-  });
-
-  it('reports transport errors without treating them as fatal construction failures', async () => {
-    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const [, transport] = InMemoryTransport.createLinkedPair();
-    const closed = vi.spyOn(transport, 'close');
-    const handle = startStdioServer(() => new McpServer({ name: 'test', version: '1' }), transport);
-    handles.push(handle);
-    transport.onerror?.(new Error('secret transport details'));
-    expect(closed).not.toHaveBeenCalled();
-    expect(process.exitCode).toBe(originalExitCode);
-    expect(log).toHaveBeenCalledWith('MCP transport error.');
-    expect(JSON.stringify(log.mock.calls)).not.toContain('secret');
+  it('rejects invalid configuration without writing non-protocol output to stdout', async () => {
+    const server = launch({ INTERVALS_API_KEY: '' });
+    await expect(server.exited).resolves.toEqual({ code: 1, signal: null });
+    expect(server.stdout).toBe('');
+    expect(server.stderr).toContain('Invalid Intervals configuration');
+    expect(server.stderr).not.toContain('test-key');
   });
 });

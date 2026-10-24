@@ -66,6 +66,3 @@ export const activityWorkloadSchema = activitySummarySchema.extend({
   feel: z.number().nullish().describe('Recorded session feel'),
 });
 export type ActivityWorkload = z.infer<typeof activityWorkloadSchema>;
-
-/** Number of recent UTC calendar dates to include, counting today. */
-export const recentActivityDaysSchema = z.number().int().min(1).max(365).default(7);

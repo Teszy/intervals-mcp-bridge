@@ -1,7 +1,7 @@
 import {
   getActivityStreamPageInputSchema,
   getActivityStreamPageOutputSchema,
-} from '../../schemas/mcp/tools/get-activity-stream-page.js';
+} from './get-activity-stream-page.schemas.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';

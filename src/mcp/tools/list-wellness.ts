@@ -1,12 +1,19 @@
-import {
-  listWellnessInputSchema,
-  listWellnessOutputSchema,
-} from '../../schemas/mcp/tools/list-wellness.js';
+import { z } from 'zod';
+import { wellnessSchema } from '../../schemas/wellness.js';
+import { trainingDateRangeSchema } from '../../schemas/date-range.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import { toolHandler } from '../tool-handler.js';
+
+const listWellnessInputSchema = trainingDateRangeSchema;
+
+const listWellnessOutputSchema = z.object({
+  oldest: z.iso.date(),
+  newest: z.iso.date(),
+  wellness: z.array(wellnessSchema),
+});
 
 export function registerListWellnessTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

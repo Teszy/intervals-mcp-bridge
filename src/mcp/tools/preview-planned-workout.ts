@@ -1,11 +1,25 @@
-import {
-  previewPlannedWorkoutInputSchema,
-  previewPlannedWorkoutOutputSchema,
-} from '../../schemas/mcp/tools/preview-planned-workout.js';
+import { z } from 'zod';
+import { plannedWorkoutSchema, workoutDraftStatusSchema } from '../../schemas/workouts.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
 import { toolHandler } from '../tool-handler.js';
+
+const previewPlannedWorkoutInputSchema = z.strictObject({ workout: plannedWorkoutSchema });
+
+const previewPlannedWorkoutOutputSchema = z.object({
+  draftId: z.uuid(),
+  status: workoutDraftStatusSchema,
+  workout: plannedWorkoutSchema,
+  timedSeconds: z.number().nonnegative(),
+  distanceMeters: z.number().nonnegative(),
+  totalDurationKnown: z.boolean(),
+  fit: z.object({
+    filename: z.string(),
+    bytes: z.number().int().positive(),
+    sha256: z.string(),
+  }),
+});
 
 export function registerPreviewPlannedWorkoutTool(server: McpServer, drafts: WorkoutDrafts): void {
   server.registerTool(

@@ -160,8 +160,8 @@ protocol handling and data contracts:
 | `src/app/`       | Bridge-specific behavior, grouped by feature: stream processing, zone warnings and workout workflows. Keeps these operations independent of MCP registration; feature-specific helpers such as FIT encoding stay beside their workflow. |
 | `src/http/`      | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                                      |
 | `src/intervals/` | Intervals integration: configuration and the `IntervalsApi` adapter for endpoints, request mapping and response consistency checks. Hides upstream API details from tool handlers.                                                      |
-| `src/mcp/`       | MCP server composition, tool registration and result formatting. Connects client calls and application operations to the protocol.                                                                                                      |
-| `src/schemas/`   | Shared data contracts and their derived TypeScript types. MCP-specific contracts live under `mcp/`, with individual tool contracts under `mcp/tools/`; configuration validation stays with its loader.                                  |
+| `src/mcp/`       | MCP server composition, tool registration and result formatting. Tool-specific schemas live in the tool module or an adjacent `.schemas.ts` file when larger.                                                                           |
+| `src/schemas/`   | Shared data contracts and their derived TypeScript types in a flat directory; configuration validation stays with its loader.                                                                                                           |
 
 `src/errors.ts` defines the shared exception hierarchy. Expected failures inherit
 from `AppError` and carry controlled messages supplied at the throw site.

@@ -1,12 +1,19 @@
-import {
-  listRecentActivitiesInputSchema,
-  listRecentActivitiesOutputSchema,
-} from '../../schemas/mcp/tools/list-recent-activities.js';
+import { z } from 'zod';
+import { activitySummarySchema } from '../../schemas/activities.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import { toolHandler } from '../tool-handler.js';
+
+const listRecentActivitiesInputSchema = z.strictObject({
+  // Number of recent UTC calendar dates to include, counting today.
+  days: z.number().int().min(1).max(365).default(7),
+});
+
+const listRecentActivitiesOutputSchema = z.object({
+  activities: z.array(activitySummarySchema),
+});
 
 export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

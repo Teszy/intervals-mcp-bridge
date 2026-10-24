@@ -1,13 +1,21 @@
-import {
-  publishPlannedWorkoutInputSchema,
-  publishPlannedWorkoutOutputSchema,
-} from '../../schemas/mcp/tools/publish-planned-workout.js';
+import { z } from 'zod';
+import { plannedWorkoutEventSchema } from '../../schemas/events.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
 import { toolHandler } from '../tool-handler.js';
+
+const publishPlannedWorkoutInputSchema = z.strictObject({
+  draftId: z.uuid(),
+  approved: z.literal(true),
+});
+
+const publishPlannedWorkoutOutputSchema = z.object({
+  draftId: z.uuid(),
+  event: plannedWorkoutEventSchema,
+});
 
 export function registerPublishPlannedWorkoutTool(
   server: McpServer,

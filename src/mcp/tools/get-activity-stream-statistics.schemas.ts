@@ -1,7 +1,7 @@
-import { activityStreamQuerySchema } from '../activity-stream-query.js';
+import { activityStreamQuerySchema } from './activity-stream-query.schemas.js';
 import { z } from 'zod';
-import { activityIdSchema } from '../../activities.js';
-import { activityStreamTypeSchema } from '../../streams.js';
+import { activityIdSchema } from '../../schemas/activities.js';
+import { activityStreamTypeSchema } from '../../schemas/streams.js';
 
 const zoneSchema = z.strictObject({
   type: activityStreamTypeSchema,

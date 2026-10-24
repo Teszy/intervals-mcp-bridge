@@ -1,7 +1,7 @@
-import { activityStreamQuerySchema } from '../activity-stream-query.js';
+import { activityStreamQuerySchema } from './activity-stream-query.schemas.js';
 import { z } from 'zod';
-import { activityIdSchema } from '../../activities.js';
-import { activityStreamSchema, activityStreamTypeSchema } from '../../streams.js';
+import { activityIdSchema } from '../../schemas/activities.js';
+import { activityStreamSchema, activityStreamTypeSchema } from '../../schemas/streams.js';
 
 export const getActivityStreamOverviewInputSchema = activityStreamQuerySchema.safeExtend({
   maxPoints: z.number().int().min(2).max(500).default(200),

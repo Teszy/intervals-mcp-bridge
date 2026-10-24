@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import { calculateActivityStreamStatistics } from '../../app/activity-streams/statistics.js';
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerGetActivityStreamStatisticsTool(
   server: McpServer,
@@ -23,15 +23,14 @@ export function registerGetActivityStreamStatisticsTool(
       outputSchema: getActivityStreamStatisticsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId, types, startTime, endTime, maxGapSeconds, zones }) =>
-      toolResult(async () => ({
-        activityId,
-        ...calculateActivityStreamStatistics(await client.getActivityStreams(activityId, types), {
-          startTime,
-          endTime,
-          maxGapSeconds,
-          zones,
-        }),
-      })),
+    toolHandler(async ({ activityId, types, startTime, endTime, maxGapSeconds, zones }) => ({
+      activityId,
+      ...calculateActivityStreamStatistics(await client.getActivityStreams(activityId, types), {
+        startTime,
+        endTime,
+        maxGapSeconds,
+        zones,
+      }),
+    })),
   );
 }

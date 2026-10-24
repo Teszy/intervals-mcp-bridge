@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
@@ -19,7 +19,6 @@ export function registerGetActivityDetailsTool(server: McpServer, client: Interv
       outputSchema: getActivityDetailsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId }) =>
-      toolResult(async () => ({ activity: await client.getActivity(activityId) })),
+    toolHandler(async ({ activityId }) => ({ activity: await client.getActivity(activityId) })),
   );
 }

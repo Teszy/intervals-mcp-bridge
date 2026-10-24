@@ -5,7 +5,7 @@ import {
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerPreviewPlannedWorkoutTool(server: McpServer, drafts: WorkoutDrafts): void {
   server.registerTool(
@@ -18,6 +18,6 @@ export function registerPreviewPlannedWorkoutTool(server: McpServer, drafts: Wor
       outputSchema: previewPlannedWorkoutOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
-    ({ workout }) => toolResult(async () => drafts.preview(workout)),
+    toolHandler(async ({ workout }) => drafts.preview(workout)),
   );
 }

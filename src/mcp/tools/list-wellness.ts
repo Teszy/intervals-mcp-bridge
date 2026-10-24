@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerListWellnessTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
@@ -19,11 +19,10 @@ export function registerListWellnessTool(server: McpServer, client: IntervalsApi
       outputSchema: listWellnessOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ oldest, newest }) =>
-      toolResult(async () => ({
-        oldest,
-        newest,
-        wellness: await client.getWellness({ oldest, newest }),
-      })),
+    toolHandler(async ({ oldest, newest }) => ({
+      oldest,
+      newest,
+      wellness: await client.getWellness({ oldest, newest }),
+    })),
   );
 }

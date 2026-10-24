@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import { createActivityStreamPage } from '../../app/activity-streams/page.js';
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerGetActivityStreamPageTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
@@ -20,13 +20,12 @@ export function registerGetActivityStreamPageTool(server: McpServer, client: Int
       outputSchema: getActivityStreamPageOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId, types, pageSize, offset, startTime, endTime }) =>
-      toolResult(async () => {
-        const data = await client.getActivityStreams(activityId, types);
-        return {
-          activityId,
-          ...createActivityStreamPage(data, { pageSize, offset, startTime, endTime }),
-        };
-      }),
+    toolHandler(async ({ activityId, types, pageSize, offset, startTime, endTime }) => {
+      const data = await client.getActivityStreams(activityId, types);
+      return {
+        activityId,
+        ...createActivityStreamPage(data, { pageSize, offset, startTime, endTime }),
+      };
+    }),
   );
 }

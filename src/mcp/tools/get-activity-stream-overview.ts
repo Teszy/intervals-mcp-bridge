@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import { createActivityStreamOverview } from '../../app/activity-streams/overview.js';
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerGetActivityStreamOverviewTool(
   server: McpServer,
@@ -23,13 +23,12 @@ export function registerGetActivityStreamOverviewTool(
       outputSchema: getActivityStreamOverviewOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ activityId, types, maxPoints, startTime, endTime }) =>
-      toolResult(async () => {
-        const data = await client.getActivityStreams(activityId, types);
-        return {
-          activityId,
-          ...createActivityStreamOverview(data, { maxPoints, startTime, endTime }),
-        };
-      }),
+    toolHandler(async ({ activityId, types, maxPoints, startTime, endTime }) => {
+      const data = await client.getActivityStreams(activityId, types);
+      return {
+        activityId,
+        ...createActivityStreamOverview(data, { maxPoints, startTime, endTime }),
+      };
+    }),
   );
 }

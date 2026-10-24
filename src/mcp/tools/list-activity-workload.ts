@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerListActivityWorkloadTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
@@ -19,11 +19,10 @@ export function registerListActivityWorkloadTool(server: McpServer, client: Inte
       outputSchema: listActivityWorkloadOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ oldest, newest }) =>
-      toolResult(async () => ({
-        oldest,
-        newest,
-        activities: await client.getActivityWorkload({ oldest, newest }),
-      })),
+    toolHandler(async ({ oldest, newest }) => ({
+      oldest,
+      newest,
+      activities: await client.getActivityWorkload({ oldest, newest }),
+    })),
   );
 }

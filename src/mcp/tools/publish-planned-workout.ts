@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../intervals/api.js';
 
 import type { WorkoutDrafts } from '../../app/workouts/drafts.js';
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerPublishPlannedWorkoutTool(
   server: McpServer,
@@ -29,6 +29,6 @@ export function registerPublishPlannedWorkoutTool(
         openWorldHint: true,
       },
     },
-    ({ draftId }) => toolResult(async () => drafts.publish(draftId, client)),
+    toolHandler(async ({ draftId }) => drafts.publish(draftId, client)),
   );
 }

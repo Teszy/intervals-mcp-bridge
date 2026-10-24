@@ -6,7 +6,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 
 import type { IntervalsApi } from '../../intervals/api.js';
 
-import { toolResult } from '../result.js';
+import { toolHandler } from '../tool-handler.js';
 
 export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(
@@ -19,6 +19,6 @@ export function registerListRecentActivitiesTool(server: McpServer, client: Inte
       outputSchema: listRecentActivitiesOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    ({ days }) => toolResult(async () => ({ activities: await client.getRecentActivities(days) })),
+    toolHandler(async ({ days }) => ({ activities: await client.getRecentActivities(days) })),
   );
 }

@@ -21,6 +21,8 @@ export function registerGetActivityDetailsTool(server: McpServer, client: Interv
       outputSchema: getActivityDetailsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ activityId }) => ({ activity: await client.getActivity(activityId) })),
+    toolHandler(async ({ activityId }, ctx) => ({
+      activity: await client.getActivity(activityId, ctx.mcpReq.signal),
+    })),
   );
 }

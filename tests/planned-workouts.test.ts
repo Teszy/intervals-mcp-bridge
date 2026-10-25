@@ -99,6 +99,55 @@ describe('FIT planned workouts', () => {
   });
 });
 
+describe('published workout response consistency', () => {
+  const externalId = 'intervals-mcp-test-draft';
+
+  it('accepts a response matching the requested workout and external ID', async () => {
+    const event = { ...plannedEvent, external_id: externalId };
+    mockHttp(event);
+    await expect(
+      new IntervalsApi(config).publishPlannedWorkout(
+        plannedWorkout,
+        encodeWorkoutFit(plannedWorkout),
+        externalId,
+      ),
+    ).resolves.toEqual(event);
+  });
+
+  it.each([undefined, null])('accepts an optional external ID of %s', async (external_id) => {
+    const event = { ...plannedEvent, external_id };
+    mockHttp(event);
+    await expect(
+      new IntervalsApi(config).publishPlannedWorkout(
+        plannedWorkout,
+        encodeWorkoutFit(plannedWorkout),
+        externalId,
+      ),
+    ).resolves.toEqual(event);
+  });
+
+  it.each([
+    { start_date_local: '2026-10-15T09:00:00' },
+    { start_date_local: 'private-invalid-date' },
+    { type: 'Ride' },
+    { type: null },
+    { type: undefined },
+    { external_id: 'private-different-draft' },
+    { external_id: '' },
+  ])('rejects a response that does not confirm the requested workout: %j', async (changes) => {
+    mockHttp({ ...plannedEvent, external_id: externalId, ...changes });
+    const operation = new IntervalsApi(config).publishPlannedWorkout(
+      plannedWorkout,
+      encodeWorkoutFit(plannedWorkout),
+      externalId,
+    );
+    await expect(operation).rejects.toMatchObject({
+      name: 'UpstreamDataError',
+      message: 'Intervals API returned a planned workout that does not match the published draft.',
+    });
+  });
+});
+
 describe('workout draft publication', () => {
   it('owns a snapshot independent of later caller mutations', () => {
     const drafts = new WorkoutDrafts();
@@ -197,22 +246,34 @@ describe('workout draft publication', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
   it('blocks concurrent publications', async () => {
-    const adapter = mockHttp(plannedEvent);
     let finish!: () => void;
-    const original = adapter.getMockImplementation()!;
-    adapter.mockImplementation(async (request) => {
-      await new Promise<void>((resolve) => {
-        finish = resolve;
-      });
-      return original(request);
-    });
+    const client = new IntervalsApi(config);
+    const publishPlannedWorkout = vi.spyOn(client, 'publishPlannedWorkout').mockImplementation(
+      () =>
+        new Promise<typeof plannedEvent>((resolve) => {
+          finish = () => resolve(plannedEvent);
+        }),
+    );
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsApi(config);
     const first = drafts.publish(draftId, client);
     await expect(drafts.publish(draftId, client)).rejects.toBeInstanceOf(WorkoutError);
     finish();
-    await first;
+    await expect(first).resolves.toEqual({ draftId, event: plannedEvent });
+    expect(publishPlannedWorkout).toHaveBeenCalledTimes(1);
+  });
+  it('keeps a draft ready when publication is cancelled before starting', async () => {
+    const adapter = mockHttp(plannedEvent);
+    const drafts = new WorkoutDrafts();
+    const { draftId } = drafts.preview(plannedWorkout);
+    const client = new IntervalsApi(config);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(drafts.publish(draftId, client, controller.signal)).rejects.toThrow();
+    expect(adapter).not.toHaveBeenCalled();
+    expect(drafts.preview(plannedWorkout).status).toBe('ready');
+    await expect(drafts.publish(draftId, client)).resolves.toMatchObject({ event: plannedEvent });
     expect(adapter).toHaveBeenCalledTimes(1);
   });
   it.each([500, 200])('blocks retries when outcome is uncertain (HTTP %s)', async (status) => {
@@ -225,6 +286,26 @@ describe('workout draft publication', () => {
     await expect(publication).rejects.toHaveProperty('cause');
     await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
     expect(drafts.preview(plannedWorkout).status).toBe('unknown');
+    expect(adapter).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { start_date_local: '2026-10-15T09:00:00' },
+    { type: 'Ride' },
+    { external_id: 'private-different-draft' },
+  ])('keeps mismatched publication responses uncertain and blocks retries: %j', async (changes) => {
+    const adapter = mockHttp({ ...plannedEvent, ...changes });
+    const drafts = new WorkoutDrafts();
+    const { draftId } = drafts.preview(plannedWorkout);
+    const client = new IntervalsApi(config);
+    const publication = drafts.publish(draftId, client);
+
+    await expect(publication).rejects.toMatchObject({
+      name: 'WorkoutError',
+      cause: { name: 'UpstreamDataError' },
+    });
+    expect(drafts.preview(plannedWorkout).status).toBe('unknown');
+    await expect(drafts.publish(draftId, client)).rejects.toThrow('uncertain');
     expect(adapter).toHaveBeenCalledTimes(1);
   });
 });

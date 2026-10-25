@@ -31,3 +31,9 @@ jobs:
 
       - name: Quality gates
         run: pnpm check
+
+      - name: Build runtime image
+        run: docker build --tag intervals-mcp-bridge:ci-smoke .
+
+      - name: Smoke test compiled application in runtime image
+        run: pnpm test:container

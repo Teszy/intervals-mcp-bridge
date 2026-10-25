@@ -8,9 +8,10 @@ import { encodeWorkoutFit } from './fit.js';
 type Draft = {
   workout: PlannedWorkout;
   fit: Uint8Array;
-  status: WorkoutDraftStatus;
-  event?: PlannedWorkoutEvent;
-};
+} & (
+  | { status: Exclude<WorkoutDraftStatus, 'published'> }
+  | { status: 'published'; event: PlannedWorkoutEvent }
+);
 
 /** One registry per MCP server, binding publication to the exact reviewed bytes. */
 export class WorkoutDrafts {
@@ -52,13 +53,13 @@ export class WorkoutDrafts {
     };
   }
 
-  async publish(draftId: string, client: IntervalsApi) {
+  async publish(draftId: string, client: IntervalsApi, signal?: AbortSignal) {
     const draft = this.#drafts.get(draftId);
     if (!draft)
       throw new WorkoutError(
         'Unknown draft; generate and review a preview in this server session first.',
       );
-    if (draft.status === 'published') return { draftId, event: draft.event! };
+    if (draft.status === 'published') return { draftId, event: draft.event };
     if (draft.status === 'publishing')
       throw new WorkoutError(
         'Publication is in progress. Wait for its result before taking further action.',
@@ -67,15 +68,17 @@ export class WorkoutDrafts {
       throw new WorkoutError(
         'Publication outcome is uncertain. Inspect the Intervals calendar before creating another draft.',
       );
+    // Cancellation before any write starts must leave the reviewed draft usable.
+    signal?.throwIfAborted();
     draft.status = 'publishing';
     try {
       const event = await client.publishPlannedWorkout(
         draft.workout,
         draft.fit,
         `intervals-mcp-${draftId}`,
+        signal,
       );
-      draft.event = event;
-      draft.status = 'published';
+      this.#drafts.set(draftId, { ...draft, status: 'published', event });
       return { draftId, event };
     } catch (error: unknown) {
       // A timeout or invalid response can occur after upstream creation; never retry blindly.

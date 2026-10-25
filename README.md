@@ -5,9 +5,6 @@ data and lets them publish approved planned workouts.
 
 ## Setup
 
-> [!NOTE]
-> Requires **VS Code 1.140 or later**. **Copilot Free is sufficient**.
-
 Create a local `.env` file from [.env.example](.env.example) in the repository root.
 
 ### Obtain Intervals.icu key and ID
@@ -113,6 +110,11 @@ asleep. Local development tools are available while the host's MCP process runs.
 Workout drafts and published-event results are held in process memory. Restarting or recreating the server loses them, so complete preview and publication in the same running process. Previously published calendar events remain in Intervals.
 If a write had an uncertain outcome, inspect the calendar before creating a new draft.
 
+> [!WARNING]
+> Drafts are stored in memory, limited to 100 distinct drafts per server session,
+> including published ones. At the limit, restart the container to create new
+> drafts; unpublished drafts will be lost. This limitation is planned for future improvement.
+
 ## Development
 
 > [!NOTE]
@@ -172,3 +174,14 @@ state management and verification strategy.
 - **Release Please:** release PRs, versioning, changelog and GitHub releases.
 - **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
 - **commitlint:** Conventional Commits enforcement.
+
+CI also builds the Docker runtime image and runs the stdio tests against its
+compiled application. Run the same container smoke check locally with Docker running:
+
+```sh
+docker build --tag intervals-mcp-bridge:ci-smoke .
+pnpm test:container
+```
+
+The tests start temporary containers with dummy credentials and networking disabled.
+They invoke the Node entry point directly; tunnel connectivity is a separate check.

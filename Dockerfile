@@ -13,10 +13,10 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 FROM dependencies AS build
 RUN pnpm install --frozen-lockfile --ignore-scripts
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 # Compile the application only; repository tests are validated separately.
-RUN pnpm exec tsc --rootDir . --outDir dist
+RUN pnpm build
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS tunnel
 ARG TARGETARCH

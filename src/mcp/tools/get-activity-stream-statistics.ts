@@ -23,14 +23,17 @@ export function registerGetActivityStreamStatisticsTool(
       outputSchema: getActivityStreamStatisticsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ activityId, types, startTime, endTime, maxGapSeconds, zones }) => ({
+    toolHandler(async ({ activityId, types, startTime, endTime, maxGapSeconds, zones }, ctx) => ({
       activityId,
-      ...calculateActivityStreamStatistics(await client.getActivityStreams(activityId, types), {
-        startTime,
-        endTime,
-        maxGapSeconds,
-        zones,
-      }),
+      ...calculateActivityStreamStatistics(
+        await client.getActivityStreams(activityId, types, ctx.mcpReq.signal),
+        {
+          startTime,
+          endTime,
+          maxGapSeconds,
+          zones,
+        },
+      ),
     })),
   );
 }

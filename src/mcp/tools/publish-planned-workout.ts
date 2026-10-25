@@ -37,6 +37,6 @@ export function registerPublishPlannedWorkoutTool(
         openWorldHint: true,
       },
     },
-    toolHandler(async ({ draftId }) => drafts.publish(draftId, client)),
+    toolHandler(async ({ draftId }, ctx) => drafts.publish(draftId, client, ctx.mcpReq.signal)),
   );
 }

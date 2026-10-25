@@ -26,10 +26,10 @@ export function registerListActivityWorkloadTool(server: McpServer, client: Inte
       outputSchema: listActivityWorkloadOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ oldest, newest }) => ({
+    toolHandler(async ({ oldest, newest }, ctx) => ({
       oldest,
       newest,
-      activities: await client.getActivityWorkload({ oldest, newest }),
+      activities: await client.getActivityWorkload({ oldest, newest }, ctx.mcpReq.signal),
     })),
   );
 }

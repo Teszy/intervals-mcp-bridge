@@ -190,10 +190,7 @@ describe('Intervals configuration', () => {
 });
 
 describe('IntervalsApi', () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-01-03T23:30:00Z'));
-  });
+  const dates = { oldest: '2025-12-28', newest: '2026-01-03' };
 
   it('loads environment configuration when none is supplied', async () => {
     vi.stubEnv('INTERVALS_API_KEY', ' environment-key ');
@@ -201,7 +198,7 @@ describe('IntervalsApi', () => {
     const { adapter } = setup();
     const client = new IntervalsApi();
     expect(adapter).not.toHaveBeenCalled();
-    await client.getRecentActivities();
+    await client.getRecentActivities(dates);
     const request = adapter.mock.calls[0]![0];
     expect(request.url).toBe('/athlete/i456/activities');
     expect(request.headers.get('Authorization')).toBe(
@@ -217,11 +214,11 @@ describe('IntervalsApi', () => {
   it('accepts explicit configuration without reading environment credentials', async () => {
     vi.stubEnv('INTERVALS_API_KEY', '');
     const { adapter } = setup();
-    await new IntervalsApi({ ...config, athleteId: '0' }).getRecentActivities();
+    await new IntervalsApi({ ...config, athleteId: '0' }).getRecentActivities(dates);
     expect(adapter.mock.calls[0]![0].url).toBe('/athlete/0/activities');
   });
 
-  it('configures authentication, timeout and date bounds and validates summaries', async () => {
+  it('forwards explicit date bounds in one request and validates summaries', async () => {
     const activity = {
       id: 'i42',
       name: 'Morning run',
@@ -231,7 +228,7 @@ describe('IntervalsApi', () => {
       moving_time: 1800,
     };
     const { client, adapter } = setup([{ ...activity, extra_field: true }]);
-    expect(await client.getRecentActivities()).toEqual([activity]);
+    expect(await client.getRecentActivities(dates)).toEqual([activity]);
     expect(adapter).toHaveBeenCalledOnce();
     const request = adapter.mock.calls[0]![0];
     expect(request).toMatchObject({
@@ -240,7 +237,7 @@ describe('IntervalsApi', () => {
       method: 'get',
       timeout: 15_000,
       maxRedirects: 0,
-      params: { oldest: '2025-12-28', newest: '2026-01-03' },
+      params: dates,
       signal: expect.any(AbortSignal),
     });
     expect(request.headers.get('Accept')).toBe('application/json');
@@ -253,55 +250,38 @@ describe('IntervalsApi', () => {
     const adapter = mockHttp();
     const client = new IntervalsApi({ ...config, baseURL: 'https://example.com/api' });
     expect(adapter).not.toHaveBeenCalled();
-    await client.getRecentActivities();
+    await client.getRecentActivities(dates);
     expect(adapter.mock.calls[0]![0].baseURL).toBe('https://example.com/api');
   });
 
-  it('supports a single date and empty results', async () => {
+  it.each([
+    { oldest: '2026-01-03', newest: '2026-01-03' },
+    { oldest: '2024-02-29', newest: '2024-03-01' },
+    { oldest: '2025-01-04', newest: '2026-01-03' },
+  ])('preserves date bounds and accepts empty results: %j', async (range) => {
     const { client, adapter } = setup();
-    expect(await client.getRecentActivities(1)).toEqual([]);
-    expect(adapter.mock.calls[0]![0].params).toEqual({
-      oldest: '2026-01-03',
-      newest: '2026-01-03',
-    });
-  });
-
-  it('handles leap days', async () => {
-    vi.setSystemTime(new Date('2024-03-01T00:00:00Z'));
-    const { client, adapter } = setup();
-    await client.getRecentActivities(2);
-    expect(adapter.mock.calls[0]![0].params).toEqual({
-      oldest: '2024-02-29',
-      newest: '2024-03-01',
-    });
+    expect(await client.getRecentActivities(range)).toEqual([]);
+    expect(adapter.mock.calls[0]![0].params).toEqual(range);
+    expect(adapter).toHaveBeenCalledOnce();
   });
 
   it('accepts partial summaries and nullable fields', async () => {
     const data = [{ id: 'i1' }, { id: 'i2', name: null, distance: null, moving_time: 0 }];
-    expect(await setup(data).client.getRecentActivities()).toEqual(data);
+    expect(await setup(data).client.getRecentActivities(dates)).toEqual(data);
   });
 
   it.each([{}, null, [{ name: 'missing id' }], [{ id: 'i1', distance: 'bad' }], 'not json'])(
     'rejects malformed responses',
     async (data) => {
-      await expect(setup(data).client.getRecentActivities()).rejects.toThrow(
+      await expect(setup(data).client.getRecentActivities(dates)).rejects.toThrow(
         'API response does not match the expected schema.',
       );
     },
   );
 
-  it('accepts the maximum date range', async () => {
-    const { client, adapter } = setup();
-    expect(await client.getRecentActivities(365)).toEqual([]);
-    expect(adapter.mock.calls[0]![0].params).toEqual({
-      oldest: '2025-01-04',
-      newest: '2026-01-03',
-    });
-  });
-
   it('propagates API client failures', async () => {
     mockHttp([], 503);
-    await expect(new IntervalsApi(config).getRecentActivities()).rejects.toMatchObject({
+    await expect(new IntervalsApi(config).getRecentActivities(dates)).rejects.toMatchObject({
       name: 'HTTPError',
       status: 503,
     });

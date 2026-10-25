@@ -26,10 +26,10 @@ export function registerListWellnessTool(server: McpServer, client: IntervalsApi
       outputSchema: listWellnessOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ oldest, newest }) => ({
+    toolHandler(async ({ oldest, newest }, ctx) => ({
       oldest,
       newest,
-      wellness: await client.getWellness({ oldest, newest }),
+      wellness: await client.getWellness({ oldest, newest }, ctx.mcpReq.signal),
     })),
   );
 }

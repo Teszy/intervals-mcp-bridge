@@ -49,6 +49,8 @@ async function connect() {
 }
 
 describe('MCP recent activities tool', () => {
+  const dates = { oldest: '2026-10-01', newest: '2026-10-07' };
+
   it('advertises its input/output schemas and read-only annotation', async () => {
     const adapter = mockHttp();
     const request = await connect();
@@ -57,7 +59,7 @@ describe('MCP recent activities tool', () => {
         tools: [
           {
             name: 'list_recent_activities',
-            inputSchema: { properties: { days: { minimum: 1, maximum: 365, default: 7 } } },
+            inputSchema: { required: ['oldest', 'newest'] },
             outputSchema: { properties: { activities: { type: 'array' } } },
             annotations: { readOnlyHint: true },
           },
@@ -128,36 +130,46 @@ describe('MCP recent activities tool', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
 
-  it.each([undefined, 30])('returns validated structured results for days=%s', async (days) => {
+  it.each([
+    dates,
+    { oldest: '2026-10-01', newest: '2026-10-01' },
+    { oldest: '2024-02-29', newest: '2024-03-01' },
+    { oldest: '2025-01-04', newest: '2026-01-03' },
+  ])('returns validated results for explicit dates: %j', async (range) => {
     const activities = [{ id: 'i42', name: 'Run' }];
     const adapter = mockHttp(activities);
     const request = await connect();
     expect(
       await request('tools/call', {
         name: 'list_recent_activities',
-        ...(days === undefined ? {} : { arguments: { days } }),
+        arguments: range,
       }),
     ).toMatchObject({
       result: {
-        structuredContent: { activities },
-        content: [{ type: 'text', text: JSON.stringify({ activities }) }],
+        structuredContent: { ...range, activities },
+        content: [{ type: 'text', text: JSON.stringify({ ...range, activities }) }],
       },
     });
-    const params = adapter.mock.calls[0]![0].params;
-    const difference = (Date.parse(params.newest) - Date.parse(params.oldest)) / 86_400_000;
-    expect(difference).toBe((days ?? 7) - 1);
+    expect(adapter).toHaveBeenCalledOnce();
+    expect(adapter.mock.calls[0]![0]).toMatchObject({
+      url: '/athlete/i12345/activities',
+      params: range,
+    });
   });
 
   it('returns empty activities as a successful result', async () => {
     mockHttp([]);
     const request = await connect();
-    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    const response = await request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: dates,
+    });
     expect(response).toHaveProperty('result.structuredContent.activities', []);
     expect(response).not.toHaveProperty('result.isError', true);
   });
 
   it.each([
-    { name: 'list_recent_activities', arguments: { day: 7 } },
+    { name: 'list_recent_activities', arguments: { ...dates, day: 7 } },
     { name: 'get_athlete_settings', arguments: { extra: true } },
     {
       name: 'list_wellness',
@@ -176,24 +188,33 @@ describe('MCP recent activities tool', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
 
-  it.each([0, -1, 366, 1.5, NaN, Infinity, '7'])(
-    'rejects invalid days %s before requesting',
-    async (days) => {
-      const adapter = mockHttp();
-      const request = await connect();
-      const response = await request('tools/call', {
-        name: 'list_recent_activities',
-        arguments: { days },
-      });
-      expect(response).toHaveProperty('result.isError', true);
-      expect(adapter).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    {},
+    { oldest: '2026-10-01' },
+    { newest: '2026-10-07' },
+    { days: 7 },
+    { oldest: '2026-02-29', newest: '2026-03-01' },
+    { oldest: '2026-10-07', newest: '2026-10-01' },
+    { oldest: '2024-01-01', newest: '2024-12-31' },
+    { oldest: '2026-10-01T00:00:00', newest: '2026-10-07' },
+  ])('rejects invalid date ranges before requesting: %j', async (range) => {
+    const adapter = mockHttp();
+    const request = await connect();
+    const response = await request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: range,
+    });
+    expect(response).toHaveProperty('result.isError', true);
+    expect(adapter).not.toHaveBeenCalled();
+  });
 
   it.each([401, 403, 500])('reports HTTP %s as a sanitized tool error', async (status) => {
     mockHttp('test-secret response body', status);
     const request = await connect();
-    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    const response = await request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: dates,
+    });
     expect(response).toMatchObject({
       result: {
         isError: true,
@@ -208,7 +229,10 @@ describe('MCP recent activities tool', () => {
       new TypeError('secret diagnostic'),
     );
     const request = await connect();
-    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    const response = await request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: dates,
+    });
     expect(response).toMatchObject({
       result: {
         isError: true,
@@ -225,7 +249,10 @@ describe('MCP recent activities tool', () => {
       { id: 'i42', moving_time: 'private-output-value' },
     ] as unknown as Awaited<ReturnType<IntervalsApi['getRecentActivities']>>);
     const request = await connect();
-    const response = await request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    const response = await request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: dates,
+    });
     expect(response).toHaveProperty('result.isError', true);
     expect(JSON.stringify(response)).toContain('Output validation error');
     expect(JSON.stringify(response)).not.toContain('private-output-value');
@@ -236,7 +263,7 @@ describe('MCP recent activities tool', () => {
     mockHttp([{ name: 'private activity without id' }]);
     const request = await connect();
     expect(
-      await request('tools/call', { name: 'list_recent_activities', arguments: {} }),
+      await request('tools/call', { name: 'list_recent_activities', arguments: dates }),
     ).toMatchObject({
       result: {
         isError: true,

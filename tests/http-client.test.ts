@@ -118,8 +118,43 @@ describe('HTTPClient', () => {
     await client.get('/items', z.unknown(), undefined, controller.signal);
     await client.post('/items', z.unknown(), {}, controller.signal);
     await client.uploadFile('/files', z.unknown(), new FormData(), controller.signal);
-    for (const [request] of adapter.mock.calls) expect(request.signal).toBe(controller.signal);
+    for (const [request] of adapter.mock.calls) expect(request.signal?.aborted).toBe(false);
+    controller.abort('caller cancelled');
+    for (const [request] of adapter.mock.calls) {
+      expect(request.signal?.aborted).toBe(true);
+      expect(request.signal).toHaveProperty('reason', 'caller cancelled');
+    }
   });
+
+  it.each(['get', 'post', 'uploadFile'] as const)(
+    'retains the request deadline with a caller signal for %s',
+    async (method) => {
+      const { client, adapter } = setup();
+      const caller = new AbortController();
+      const deadline = new AbortController();
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
+      adapter.mockImplementation(
+        (request) =>
+          new Promise((_resolve, reject) => {
+            request.signal?.addEventListener?.('abort', () =>
+              reject(new AxiosError('timeout', 'ERR_CANCELED')),
+            );
+          }),
+      );
+
+      const operation =
+        method === 'get'
+          ? client.get('/items', z.unknown(), undefined, caller.signal)
+          : method === 'post'
+            ? client.post('/items', z.unknown(), {}, caller.signal)
+            : client.uploadFile('/files', z.unknown(), new FormData(), caller.signal);
+
+      expect(timeout).toHaveBeenCalledWith(15_000);
+      deadline.abort();
+      await expect(operation).rejects.toBeInstanceOf(HTTPError);
+      expect(caller.signal.aborted).toBe(false);
+    },
+  );
 
   it('cancels a stalled request using the deadline signal', async () => {
     const { client, adapter } = setup();

@@ -20,8 +20,8 @@ export function registerGetActivityStreamPageTool(server: McpServer, client: Int
       outputSchema: getActivityStreamPageOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async ({ activityId, types, pageSize, offset, startTime, endTime }) => {
-      const data = await client.getActivityStreams(activityId, types);
+    toolHandler(async ({ activityId, types, pageSize, offset, startTime, endTime }, ctx) => {
+      const data = await client.getActivityStreams(activityId, types, ctx.mcpReq.signal);
       return {
         activityId,
         ...createActivityStreamPage(data, { pageSize, offset, startTime, endTime }),

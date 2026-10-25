@@ -21,6 +21,8 @@ export function registerGetAthleteSettingsTool(server: McpServer, client: Interv
       outputSchema: getAthleteSettingsOutputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
-    toolHandler(async () => ({ settings: await client.getAthleteSettings() })),
+    toolHandler(async (_args, ctx) => ({
+      settings: await client.getAthleteSettings(ctx.mcpReq.signal),
+    })),
   );
 }

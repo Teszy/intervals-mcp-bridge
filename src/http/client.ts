@@ -5,14 +5,20 @@ import type { Auth } from './auth.js';
 
 export type QueryParams = Record<string, string | number | boolean | undefined>;
 
+type HTTPClientOptions = {
+  maxResponseBytes?: number;
+};
+
 /** Axios based framework-independent ES module for public and authenticated HTTP requests. */
 export class HTTPClient {
   readonly #baseURL: string;
   readonly #auth: Auth | undefined;
+  readonly #maxResponseBytes: number;
 
-  constructor(baseURL: string, auth?: Auth) {
+  constructor(baseURL: string, auth?: Auth, options: HTTPClientOptions = {}) {
     this.#baseURL = baseURL;
     this.#auth = auth ? { ...auth } : undefined;
+    this.#maxResponseBytes = options.maxResponseBytes ?? 32 * 1024 * 1024;
   }
 
   async get<S extends z.ZodType>(
@@ -84,6 +90,7 @@ export class HTTPClient {
       headers,
       timeout: 15_000,
       maxRedirects: 0,
+      maxContentLength: this.#maxResponseBytes,
     });
   }
 

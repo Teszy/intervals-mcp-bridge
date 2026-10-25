@@ -13,7 +13,7 @@ export class HTTPError extends AppError {
   ) {
     super(
       status === undefined
-        ? 'HTTP request failed: network error or timeout.'
+        ? 'HTTP request failed: no usable response received.'
         : Number.isInteger(status) && status >= 100 && status <= 599
           ? `HTTP request failed (HTTP ${status}).`
           : 'HTTP request failed.',

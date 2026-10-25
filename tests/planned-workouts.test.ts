@@ -246,23 +246,21 @@ describe('workout draft publication', () => {
     expect(adapter).not.toHaveBeenCalled();
   });
   it('blocks concurrent publications', async () => {
-    const adapter = mockHttp(plannedEvent);
     let finish!: () => void;
-    const original = adapter.getMockImplementation()!;
-    adapter.mockImplementation(async (request) => {
-      await new Promise<void>((resolve) => {
-        finish = resolve;
-      });
-      return original(request);
-    });
+    const client = new IntervalsApi(config);
+    const publishPlannedWorkout = vi.spyOn(client, 'publishPlannedWorkout').mockImplementation(
+      () =>
+        new Promise<typeof plannedEvent>((resolve) => {
+          finish = () => resolve(plannedEvent);
+        }),
+    );
     const drafts = new WorkoutDrafts();
     const { draftId } = drafts.preview(plannedWorkout);
-    const client = new IntervalsApi(config);
     const first = drafts.publish(draftId, client);
     await expect(drafts.publish(draftId, client)).rejects.toBeInstanceOf(WorkoutError);
     finish();
-    await first;
-    expect(adapter).toHaveBeenCalledTimes(1);
+    await expect(first).resolves.toEqual({ draftId, event: plannedEvent });
+    expect(publishPlannedWorkout).toHaveBeenCalledTimes(1);
   });
   it('keeps a draft ready when publication is cancelled before starting', async () => {
     const adapter = mockHttp(plannedEvent);

@@ -79,7 +79,7 @@ const dates = { oldest: '2026-10-01', newest: '2026-10-02' };
 
 describe('MCP request cancellation', () => {
   it.each([
-    { name: 'list_recent_activities', args: {} },
+    { name: 'list_recent_activities', args: dates },
     { name: 'get_activity_details', args: { activityId: 'i42' } },
     { name: 'get_athlete_settings', args: {} },
     { name: 'list_activity_workload', args: dates },
@@ -103,7 +103,7 @@ describe('MCP request cancellation', () => {
   it('aborts an in-flight HTTP request when the MCP server closes', async () => {
     const { adapter, aborted } = stalledHttp();
     const session = await connect();
-    session.request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    session.request('tools/call', { name: 'list_recent_activities', arguments: dates });
     await vi.waitFor(() => expect(adapter).toHaveBeenCalledTimes(1));
 
     await session.server.close();
@@ -114,7 +114,10 @@ describe('MCP request cancellation', () => {
   it('does not cancel another concurrent request', async () => {
     const { adapter, aborted } = stalledHttp();
     const session = await connect();
-    const first = session.request('tools/call', { name: 'list_recent_activities', arguments: {} });
+    const first = session.request('tools/call', {
+      name: 'list_recent_activities',
+      arguments: dates,
+    });
     await vi.waitFor(() => expect(adapter).toHaveBeenCalledTimes(1));
     const second = session.request('tools/call', { name: 'get_athlete_settings', arguments: {} });
     await vi.waitFor(() => expect(adapter).toHaveBeenCalledTimes(2));

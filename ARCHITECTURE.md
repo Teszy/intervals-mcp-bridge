@@ -219,6 +219,12 @@ consistency, such as athlete identity, wellness date integrity and stream alignm
 Missing observations remain absent or null. Wellness fitness/fatigue values come
 from Intervals rather than a fitness or medical-readiness model calculated here.
 
+Recent activities, workload and wellness accept explicit inclusive athlete-local
+dates (`oldest`/`newest`, `YYYY-MM-DD`). The host resolves relative dates using
+athlete settings; the bridge forwards the supplied dates without timezone lookup
+or conversion. Recent activities retains its 365-day limit; workload and wellness
+retain their 90-day limit.
+
 Zone settings are numeric arrays returned as recorded. Non-increasing boundaries
 produce advisory `zoneWarnings` without replacing or rejecting the values. The
 bridge does not repair upstream configuration; statistics retain their own explicit

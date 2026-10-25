@@ -126,22 +126,17 @@ export class IntervalsApi {
     return addZoneWarnings(data);
   }
 
-  /** Fetch the last N calendar dates, including today, using UTC to select date bounds. */
-  async getRecentActivities(days = 7, signal?: AbortSignal): Promise<ActivitySummary[]> {
-    const newest = new Date();
-    const oldest = new Date(newest);
-    oldest.setUTCDate(oldest.getUTCDate() - days + 1);
-    const data = await this.#http.get(
+  /** Fetch activity summaries in an inclusive athlete-local date range. */
+  async getRecentActivities(
+    dates: TrainingDateRange,
+    signal?: AbortSignal,
+  ): Promise<ActivitySummary[]> {
+    return this.#http.get(
       `/athlete/${this.#config.athleteId}/activities`,
       z.array(activitySummarySchema),
-      {
-        oldest: oldest.toISOString().slice(0, 10),
-        newest: newest.toISOString().slice(0, 10),
-      },
+      dates,
       signal,
     );
-
-    return data;
   }
 
   /** Fetch session metrics and detected work/recovery intervals for one activity. */

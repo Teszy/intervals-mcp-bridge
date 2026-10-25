@@ -200,6 +200,14 @@ HTTP error translation and publication state changes stay at their respective
 boundaries. Credentials, raw responses and arbitrary exception details do not
 reach the model.
 
+Network-backed tools pass the SDK's `ctx.mcpReq.signal` through `IntervalsApi`
+to `HTTPClient`. HTTP requests combine caller cancellation with a 15-second
+deadline; the Axios timeout remains a separate transport safeguard. SDK connection
+teardown also aborts in-flight requests. Cancelling publication before the write
+starts leaves the draft ready. Once publication has started, a cancellation failure
+marks its outcome unknown and blocks another write, since aborting the local request
+does not prove that Intervals has not created the event.
+
 The MCP SDK validates tool inputs, and the HTTP adapter validates upstream
 responses before application processing. Internal client methods consume validated
 arguments without parsing them again. Workout preview accepts a branded, normalized
@@ -247,10 +255,14 @@ transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.
 
-Container smoke checks exercise the compiled stdio entry point and FIT workflow
-against a mock Intervals API. A separate mock control-plane check exercises the
-actual tunnel binary's startup, readiness and graceful shutdown. These checks do
-not replace a live ChatGPT read and approved publication acceptance test.
+PR and main CI also build the Docker runtime image and run the existing stdio
+suite against its compiled JavaScript entry point using `pnpm test:container`.
+Test containers use dummy credentials, have networking disabled and override the
+tunnel entry point with Node. The checks cover initialization, tool discovery,
+FIT preview, EOF/signal shutdown and invalid configuration. Upstream HTTP behavior
+is covered by the separate mocked integration tests. The container smoke suite
+does not exercise the tunnel control plane or a live ChatGPT connection; those
+remain separate acceptance checks.
 
 Update the diagrams when responsibilities, dependencies, transport or state
 ownership change. Leave detailed field rules in schemas/tool descriptions and CI

@@ -5,9 +5,6 @@ data and lets them publish approved planned workouts.
 
 ## Setup
 
-> [!NOTE]
-> Requires **VS Code 1.140 or later**. **Copilot Free is sufficient**.
-
 Create a local `.env` file from [.env.example](.env.example) in the repository root.
 
 ### Obtain Intervals.icu key and ID
@@ -172,3 +169,14 @@ state management and verification strategy.
 - **Release Please:** release PRs, versioning, changelog and GitHub releases.
 - **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
 - **commitlint:** Conventional Commits enforcement.
+
+CI also builds the Docker runtime image and runs the stdio tests against its
+compiled application. Run the same container smoke check locally with Docker running:
+
+```sh
+docker build --tag intervals-mcp-bridge:ci-smoke .
+pnpm test:container
+```
+
+The tests start temporary containers with dummy credentials and networking disabled.
+They invoke the Node entry point directly; tunnel connectivity is a separate check.

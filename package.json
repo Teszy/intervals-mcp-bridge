@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "format:check": "prettier . --check",
     "test:run": "vitest run --passWithNoTests",
+    "test:container": "MCP_TEST_IMAGE=intervals-mcp-bridge:ci-smoke vitest run tests/stdio.test.ts",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "prepare": "husky",

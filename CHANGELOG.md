@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.1.0...v1.1.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* improve publication safety, cancellation handling and build consistency ([#29](https://github.com/Teszy/intervals-mcp-bridge/issues/29)) ([ad510f0](https://github.com/Teszy/intervals-mcp-bridge/commit/ad510f0fede9042b25eae399d1478562250a86e0))
+
 ## [1.1.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.0.0...v1.1.0) (2026-10-22)
 
 

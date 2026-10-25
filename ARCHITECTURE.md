@@ -255,6 +255,11 @@ transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.
 
+`pnpm typecheck` uses `tsconfig.json` to check application sources, tests and the
+Vitest configuration without emitting files. Local and Docker builds use
+`pnpm build` with `tsconfig.build.json`, which extends `tsconfig.json` and compiles
+only `src` to `dist/src`, deliberately excluding tests.
+
 PR and main CI also build the Docker runtime image and run the existing stdio
 suite against its compiled JavaScript entry point using `pnpm test:container`.
 Test containers use dummy credentials, have networking disabled and override the

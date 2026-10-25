@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-/** Maximum samples per upstream stream, including time; oversized series are never truncated. */
-export const maxActivityStreamPoints = 1_000_000;
-
 export const activityStreamTypeSchema = z.enum([
   'heartrate',
   'velocity_smooth',
@@ -28,10 +25,7 @@ export type ActivityStream = z.infer<typeof activityStreamSchema>;
 
 /** Upstream streams also include time; unrequested scalar streams are discarded. */
 export const activityStreamsResponseSchema = z.array(
-  activityStreamSchema.extend({
-    type: z.string(),
-    data: activityStreamSchema.shape.data.max(maxActivityStreamPoints),
-  }),
+  activityStreamSchema.extend({ type: z.string() }),
 );
 
 export type ActivityStreamType = z.infer<typeof activityStreamTypeSchema>;

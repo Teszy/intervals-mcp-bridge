@@ -5,7 +5,6 @@ import { loadIntervalsConfig } from '../src/intervals/config.js';
 import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
 import { activityStreams } from './fixtures/streams.js';
-import { maxActivityStreamPoints } from '../src/schemas/streams.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -87,27 +86,6 @@ describe('IntervalsApi activity streams', () => {
     expect(result.streams).toEqual([activityStreams[4]]);
     expect(result.missingStreams).toEqual([]);
     expect(adapter.mock.calls[0]![0].params.types).toBe('time,altitude');
-  });
-
-  it('accepts a full aligned stream at the point limit without truncating it', async () => {
-    const { client } = setup([
-      { type: 'time', data: Array.from({ length: maxActivityStreamPoints }, (_, i) => i) },
-      { type: 'watts', data: Array(maxActivityStreamPoints).fill(100) },
-    ]);
-    const result = await client.getActivityStreams('i42', ['watts']);
-    expect(result.time).toHaveLength(maxActivityStreamPoints);
-    expect(result.time.at(-1)).toBe(maxActivityStreamPoints - 1);
-    expect(result.streams[0]!.data).toHaveLength(maxActivityStreamPoints);
-  });
-
-  it('rejects streams over the point limit instead of returning partial data', async () => {
-    const { client } = setup([
-      { type: 'time', data: Array.from({ length: maxActivityStreamPoints + 1 }, (_, i) => i) },
-      { type: 'watts', data: Array(maxActivityStreamPoints + 1).fill(100) },
-    ]);
-    await expect(client.getActivityStreams('i42', ['watts'])).rejects.toBeInstanceOf(
-      UpstreamDataError,
-    );
   });
 
   it.each([

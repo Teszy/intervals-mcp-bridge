@@ -7,7 +7,6 @@ import { createServer } from '../src/mcp/server.js';
 import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
 import { activityStreams } from './fixtures/streams.js';
-import { maxActivityStreamPoints } from '../src/schemas/streams.js';
 
 const config = {
   apiKey: 'test-secret',
@@ -335,20 +334,6 @@ describe('MCP full-resolution stream statistics', () => {
 });
 
 describe('MCP activity streams tool', () => {
-  it('rejects an oversized upstream stream even when requesting a one-point page', async () => {
-    const adapter = mockHttp([
-      { type: 'time', data: Array.from({ length: maxActivityStreamPoints + 1 }, (_, i) => i) },
-    ]);
-    const request = await connect();
-    const response = await request('tools/call', {
-      name: 'get_activity_stream_page',
-      arguments: { activityId: 'i42', types: ['watts'], pageSize: 1 },
-    });
-    expect(response).toHaveProperty('result.isError', true);
-    expect(response).not.toHaveProperty('result.structuredContent');
-    expect(adapter).toHaveBeenCalledTimes(1);
-  });
-
   it('returns aligned measurements, units and missing-stream metadata without sampling short data', async () => {
     mockHttp(activityStreams);
     const request = await connect();

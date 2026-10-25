@@ -31,7 +31,6 @@ describe('HTTPClient', () => {
       params: { page: 1, active: true },
       timeout: 15_000,
       maxRedirects: 0,
-      maxContentLength: 32 * 1024 * 1024,
     });
     expect(request.headers.get('Accept')).toBe('application/json');
     expect(request.headers.has('Authorization')).toBe(false);
@@ -172,7 +171,7 @@ describe('HTTPClient', () => {
     const request = client.get('', z.unknown());
     expect(timeout).toHaveBeenCalledWith(15_000);
     controller.abort();
-    await expect(request).rejects.toThrow('no usable response received');
+    await expect(request).rejects.toThrow('network error or timeout');
   });
 
   it('parses JSON response bodies', async () => {
@@ -220,39 +219,10 @@ describe('HTTPClient', () => {
     const request = client.uploadFile('/files', z.unknown(), new FormData());
     await expect(request).rejects.toMatchObject({
       name: 'HTTPError',
-      message: 'HTTP request failed: no usable response received.',
+      message: 'HTTP request failed: network error or timeout.',
     });
     await expect(request).rejects.toHaveProperty('cause', error);
     await expect(request).rejects.toHaveProperty('cause.stack', error.stack);
-  });
-});
-
-describe('HTTP response size limit with the native Axios adapter', () => {
-  // data: URLs exercise Axios's own byte-limit enforcement without network access.
-  const dataURL = (value: string) =>
-    `data:application/octet-stream;base64,${Buffer.from(value).toString('base64')}`;
-
-  it('accepts a response exactly at the configured byte limit', async () => {
-    const client = new HTTPClient('', undefined, { maxResponseBytes: 32 });
-    const payload = 'é'.repeat(16);
-    expect(Buffer.byteLength(payload)).toBe(32);
-    await expect(client.get(dataURL(payload), z.instanceof(Buffer))).resolves.toEqual(
-      Buffer.from(payload),
-    );
-  });
-
-  it('rejects a response one byte over the limit and preserves the Axios cause', async () => {
-    const client = new HTTPClient('', undefined, { maxResponseBytes: 32 });
-    const operation = client.get(dataURL('é'.repeat(16) + 'a'), z.instanceof(Buffer));
-
-    await expect(operation).rejects.toMatchObject({
-      name: 'HTTPError',
-      message: 'HTTP request failed: no usable response received.',
-      cause: {
-        code: 'ERR_BAD_RESPONSE',
-        message: 'maxContentLength size of 32 exceeded',
-      },
-    });
   });
 });
 

@@ -110,6 +110,11 @@ asleep. Local development tools are available while the host's MCP process runs.
 Workout drafts and published-event results are held in process memory. Restarting or recreating the server loses them, so complete preview and publication in the same running process. Previously published calendar events remain in Intervals.
 If a write had an uncertain outcome, inspect the calendar before creating a new draft.
 
+> [!WARNING]
+> Drafts are stored in memory, limited to 100 distinct drafts per server session,
+> including published ones. At the limit, restart the container to create new
+> drafts; unpublished drafts will be lost. This limitation is planned for future improvement.
+
 ## Development
 
 > [!NOTE]

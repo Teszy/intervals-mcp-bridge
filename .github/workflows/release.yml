@@ -1,4 +1,4 @@
-name: Release Engine
+name: CI & Release
 
 on:
   push:

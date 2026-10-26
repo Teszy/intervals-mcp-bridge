@@ -45,7 +45,7 @@
         <mxCell id="docker" parent="computer" style="rounded=1;arcSize=12;html=0;fillColor=#eff8ff;strokeColor=#3b82b8;strokeWidth=1.5;" value="" vertex="1">
           <mxGeometry height="570" width="1270" x="35" y="70" as="geometry" />
         </mxCell>
-        <mxCell id="docker-label-0" parent="docker" style="text;html=0;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=17;fontStyle=1;fontColor=#172338;strokeColor=none;fillColor=none;" value="Docker container — started with pnpm docker:up" vertex="1">
+        <mxCell id="docker-label-0" parent="docker" style="text;html=0;align=center;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=17;fontStyle=1;fontColor=#172338;strokeColor=none;fillColor=none;" value="Docker container" vertex="1">
           <mxGeometry height="24" width="1270" y="12" as="geometry" />
         </mxCell>
         <mxCell id="caller" parent="docker" style="rounded=1;arcSize=12;html=0;fillColor=#f2edff;strokeColor=#78639d;strokeWidth=1.5;" value="" vertex="1">

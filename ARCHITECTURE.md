@@ -145,12 +145,12 @@ processing and session-state rules remain the same.
 The repository separates runtime code, deployment configuration, verification
 and documentation:
 
-| Folder    | Responsibility and reason for separation                                                                                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/`    | Runtime application code, divided into the responsibilities below.                                                                                                     |
-| `docker/` | Container support configuration, including the Secure MCP Tunnel configuration. The root `Dockerfile` and `compose.yaml` define image construction and service wiring. |
-| `tests/`  | Automated checks, fixtures and HTTP mocks. Verifies application behavior and integration contracts without live credentials.                                           |
-| `docs/`   | Supporting documentation assets, including architecture diagram sources and exported diagrams.                                                                         |
+| Folder    | Responsibility and reason for separation                                                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`    | Runtime application code, divided into the responsibilities below.                                                                                                                                                                                |
+| `docker/` | Container support configuration, including the Secure MCP Tunnel configuration. The root `Dockerfile` defines image construction and `compose.yaml` runs the published image. Development uses the compiled application through a local MCP host. |
+| `tests/`  | Automated checks, fixtures and HTTP mocks. Verifies application behavior and integration contracts without live credentials.                                                                                                                      |
+| `docs/`   | Supporting documentation assets, including architecture diagram sources and exported diagrams.                                                                                                                                                    |
 
 Within `src/`, folders separate application behavior, external integration,
 protocol handling and data contracts:

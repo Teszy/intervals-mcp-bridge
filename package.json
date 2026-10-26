@@ -16,7 +16,6 @@
   "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "docker:up": "docker compose up --build -d",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format:check": "prettier . --check",

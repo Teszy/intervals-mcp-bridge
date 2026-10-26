@@ -1,18 +1,26 @@
 # intervals-mcp-bridge
 
+[![CI & Release](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/release.yml/badge.svg?branch=main&event=push)](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/Teszy/intervals-mcp-bridge)](https://github.com/Teszy/intervals-mcp-bridge/releases/latest)
+[![Container publish](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/publish-image.yml/badge.svg?event=release)](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/publish-image.yml)
+
 MCP server that gives ChatGPT access to Intervals.icu training
 data and lets them publish approved planned workouts.
 
 ## Setup
 
-Create a local `.env` file from [.env.example](.env.example) in the repository root.
+Download `compose.yaml` and `.env.example` from the latest
+[GitHub release](https://github.com/Teszy/intervals-mcp-bridge/releases/latest)
+into an empty folder, then copy `.env.example` to `.env`.
+
+Install Docker Desktop (or Docker Engine with Compose support).
 
 ### Obtain Intervals.icu key and ID
 
 Fill in the Intervals.icu values in `.env`: obtain your personal API key from
 Intervals.icu **Settings > Developer Settings** and set your athlete ID.
 
-In the repository's `.env`:
+In your local `.env`:
 
 ```dotenv
 INTERVALS_API_KEY=your_intervals_api_key
@@ -25,7 +33,7 @@ In [OpenAI Platform tunnel settings](https://platform.openai.com/settings/organi
 create a tunnel and associate it with the Platform organization and ChatGPT
 account/workspace you will use. Copy its full `tunnel_…` ID.
 
-In the repository's `.env`:
+In your local `.env`:
 
 ```dotenv
 OPENAI_TUNNEL_ID=tunnel_REPLACE_WITH_YOUR_ID
@@ -39,30 +47,48 @@ runtime use and selecting the tunnel in ChatGPT require **Tunnels Read + Use**.
 See the [official Secure MCP Tunnel guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 for permissions and account associations.
 
-In the repository's `.env`:
+In your local `.env`:
 
 ```dotenv
 OPENAI_TUNNEL_API_KEY=your_openai_tunnel_runtime_api_key
 ```
 
+Credentials stay in your local `.env` and are supplied at runtime.
+**They are never included in the published image.**
+
 ## Run
 
-Docker is the recommended runtime. The image includes the compiled MCP bridge,
-Node.js and the OpenAI tunnel client.
+Normal use requires no source checkout, Node.js or pnpm.
 
-Install and start Docker Desktop (or Docker Engine with Compose support).
+### Start the container
 
-### Build and start the container
-
-From the repository root, run:
+From the folder containing `compose.yaml` and `.env`, run:
 
 ```sh
-pnpm docker:up
+docker compose pull
+docker compose up -d
 ```
 
-This runs `docker compose up --build -d`: it builds the image and starts the
-service in the background. In Docker Desktop, wait for the container to become
-**healthy** before connecting ChatGPT.
+This downloads the published image and starts the service in the background.
+Wait for the container to become **healthy**.
+
+The image bundles the compiled MCP bridge, Node.js and the OpenAI tunnel client
+for Linux amd64 and arm64, including Apple Silicon.
+
+### Update or stop
+
+To update, repeat the `pull` and `up -d` commands:
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+To stop the service:
+
+```sh
+docker compose down
+```
 
 ### Add the MCP server to ChatGPT
 
@@ -121,6 +147,7 @@ If a write had an uncertain outcome, inspect the calendar before creating a new 
 > Direct local execution requires only the Intervals settings in `.env`.
 > The `OPENAI_` variables and an OpenAI tunnel are not needed.
 
+Clone the repository and create `.env` from `.env.example` in its root.
 Install dependencies from the repository root:
 
 ```sh
@@ -169,19 +196,9 @@ state management and verification strategy.
 
 ### CI/CD
 
-- **GitHub Actions:** [PR quality gates](.github/workflows/pr-qgate.yml) and
-  [main validation and releases](.github/workflows/release.yml).
+- **GitHub Actions:** [PR quality gates](.github/workflows/pr-qgate.yml),
+  [main validation and releases](.github/workflows/release.yml), and
+  [Docker image publishing](.github/workflows/publish-image.yml) with release setup files.
 - **Release Please:** release PRs, versioning, changelog and GitHub releases.
 - **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
 - **commitlint:** Conventional Commits enforcement.
-
-CI also builds the Docker runtime image and runs the stdio tests against its
-compiled application. Run the same container smoke check locally with Docker running:
-
-```sh
-docker build --tag intervals-mcp-bridge:ci-smoke .
-pnpm test:container
-```
-
-The tests start temporary containers with dummy credentials and networking disabled.
-They invoke the Node entry point directly; tunnel connectivity is a separate check.

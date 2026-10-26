@@ -1,8 +1,6 @@
 services:
   intervals:
-    image: ${MCP_IMAGE:-intervals-mcp-bridge:local}
-    build:
-      context: .
+    image: ${MCP_IMAGE:-ghcr.io/teszy/intervals-mcp-bridge:latest}
     init: true
     environment:
       CONTROL_PLANE_TUNNEL_ID: ${OPENAI_TUNNEL_ID:?Set OPENAI_TUNNEL_ID in .env}

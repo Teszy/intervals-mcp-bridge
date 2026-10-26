@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.1.1...v1.2.0) (2026-10-26)
+
+
+### Features
+
+* publish Docker images to GitHub Container Registry ([#31](https://github.com/Teszy/intervals-mcp-bridge/issues/31)) ([b46c010](https://github.com/Teszy/intervals-mcp-bridge/commit/b46c0101f997feca025fe501c46f95e2bd1f04e3))
+
 ## [1.1.1](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.1.0...v1.1.1) (2026-10-25)
 
 

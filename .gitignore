@@ -14,3 +14,6 @@ coverage/
 *.drawio.bkp
 
 *.log
+
+# docs markdown files
+docs/*.md

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.2.0...v1.3.0) (2026-10-28)
+
+
+### Features
+
+* publish tested Docker images for amd64 and arm64 ([#33](https://github.com/Teszy/intervals-mcp-bridge/issues/33)) ([ab69c31](https://github.com/Teszy/intervals-mcp-bridge/commit/ab69c3131f8336f21c6925e5cb7a9ac63e8984f4))
+
 ## [1.2.0](https://github.com/Teszy/intervals-mcp-bridge/compare/v1.1.1...v1.2.0) (2026-10-26)
 
 

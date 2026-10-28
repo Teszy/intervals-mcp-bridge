@@ -1,19 +1,16 @@
 # intervals-mcp-bridge
 
 [![CI & Release](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/release.yml/badge.svg?branch=main&event=push)](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/release.yml)
-[![Latest release](https://img.shields.io/github/v/release/Teszy/intervals-mcp-bridge)](https://github.com/Teszy/intervals-mcp-bridge/releases/latest)
 [![Container publish](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/publish-image.yml/badge.svg?event=release)](https://github.com/Teszy/intervals-mcp-bridge/actions/workflows/publish-image.yml)
+[![Latest release](https://img.shields.io/github/v/release/Teszy/intervals-mcp-bridge)](https://github.com/Teszy/intervals-mcp-bridge/releases/latest)
 
 MCP server that gives ChatGPT access to Intervals.icu training
 data and lets them publish approved planned workouts.
 
 ## Setup
 
-Download `compose.yaml` and `.env.example` from the latest
-[GitHub release](https://github.com/Teszy/intervals-mcp-bridge/releases/latest)
-into an empty folder, then copy `.env.example` to `.env`.
-
-Install Docker Desktop (or Docker Engine with Compose support).
+Requires Git and Docker with Compose support. Clone the repository, copy
+`.env.example` to `.env` in the repository root, and fill in the settings below.
 
 ### Obtain Intervals.icu key and ID
 
@@ -58,19 +55,18 @@ Credentials stay in your local `.env` and are supplied at runtime.
 
 ## Run
 
-Normal use requires no source checkout, Node.js or pnpm.
+Start Docker before running the commands below.
 
 ### Start the container
 
-From the folder containing `compose.yaml` and `.env`, run:
+From the cloned repository root containing `compose.yaml` and `.env`, run:
 
 ```sh
 docker compose pull
 docker compose up -d
 ```
 
-This downloads the published image and starts the service in the background.
-Wait for the container to become **healthy**.
+This downloads the published Docker Compose prebuilt image from [GitHub Packages](https://github.com/users/Teszy/packages/container/package/intervals-mcp-bridge) and starts the service in the background. Wait for the container to become **healthy**. No local build, Node.js or pnpm installation is needed.
 
 The image bundles the compiled MCP bridge, Node.js and the OpenAI tunnel client
 for Linux amd64 and arm64, including Apple Silicon.
@@ -133,13 +129,13 @@ creates a calendar workout; existing events are not updated or deleted.
 ChatGPT tools are unavailable while the container is stopped or the computer is
 asleep. Local development tools are available while the host's MCP process runs.
 
-Workout drafts and published-event results are held in process memory. Restarting or recreating the server loses them, so complete preview and publication in the same running process. Previously published calendar events remain in Intervals.
-If a write had an uncertain outcome, inspect the calendar before creating a new draft.
-
 > [!WARNING]
-> Drafts are stored in memory, limited to 100 distinct drafts per server session,
-> including published ones. At the limit, restart the container to create new
-> drafts; unpublished drafts will be lost. This limitation is planned for future improvement.
+> Workout drafts and published-event results are held in memory., limited to 100 distinct drafts per server session,
+> including published ones.
+
+At the limit, restart the container to create new drafts; unpublished drafts will be lost. This limitation is planned for future improvement.
+
+Previously published calendar events remain in Intervals. If a write had an uncertain outcome, inspect the calendar before creating a new draft.
 
 ## Development
 
@@ -198,7 +194,7 @@ state management and verification strategy.
 
 - **GitHub Actions:** [PR quality gates](.github/workflows/pr-qgate.yml),
   [main validation and releases](.github/workflows/release.yml), and
-  [Docker image publishing](.github/workflows/publish-image.yml) with release setup files.
+  [Docker image publishing](.github/workflows/publish-image.yml).
 - **Release Please:** release PRs, versioning, changelog and GitHub releases.
 - **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
 - **commitlint:** Conventional Commits enforcement.

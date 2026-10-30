@@ -1,7 +1,7 @@
 import {
-  activityStreamUnits,
   type ActivityStreams,
   type ActivityStreamType,
+  activityStreamUnits,
 } from '../../intervals/schemas/streams.js';
 
 export type ActivityStreamStatisticsOptions = {

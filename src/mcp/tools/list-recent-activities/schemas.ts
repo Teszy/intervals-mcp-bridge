@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { activitySummarySchema } from '../../../intervals/schemas/activities.js';
 import { athleteDateRangeSchema } from '../../../shared/schemas/date-range.js';
 

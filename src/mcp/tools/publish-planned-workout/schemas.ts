@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { plannedWorkoutEventSchema } from '../../../intervals/schemas/events.js';
 
 export const publishPlannedWorkoutInputSchema = z.strictObject({

@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/server';
+
 import type { IntervalsApi } from '../../../intervals/api.js';
 import { toolHandler } from '../shared/tool-handler.js';
 import { listRecentActivitiesInputSchema, listRecentActivitiesOutputSchema } from './schemas.js';

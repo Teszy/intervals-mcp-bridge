@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { plannedWorkoutSchema, workoutDraftStatusSchema } from '../../../app/workouts/schemas.js';
 
 export const previewPlannedWorkoutInputSchema = z.strictObject({ workout: plannedWorkoutSchema });

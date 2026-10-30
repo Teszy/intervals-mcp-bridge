@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { activityWorkloadSchema } from '../../../intervals/schemas/activities.js';
 import { trainingDateRangeSchema } from '../../../shared/schemas/date-range.js';
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { IntervalsApi } from '../src/intervals/api.js';
 import { mockHttp } from './helpers/http.js';
 

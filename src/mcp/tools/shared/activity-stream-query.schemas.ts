@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { activityIdSchema } from '../../../intervals/schemas/activities.js';
 import {
   activityStreamTypesSchema,

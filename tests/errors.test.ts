@@ -1,12 +1,13 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
 import {
   AppError,
   HTTPError,
-  UpstreamDataError,
   InputValidationError,
+  UpstreamDataError,
   WorkoutError,
 } from '../src/errors.js';
-import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import { toolHandler } from '../src/mcp/tools/shared/tool-handler.js';
 
 describe('central error boundary', () => {

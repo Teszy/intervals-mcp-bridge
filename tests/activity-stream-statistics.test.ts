@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { calculateActivityStreamStatistics } from '../src/app/activity-streams/statistics.js';
 import type { ActivityStreams } from '../src/intervals/schemas/streams.js';
 

@@ -1,10 +1,11 @@
-import { activityStreamQuerySchema } from '../shared/activity-stream-query.schemas.js';
 import { z } from 'zod';
+
 import { activityIdSchema } from '../../../intervals/schemas/activities.js';
 import {
   activityStreamSchema,
   activityStreamTypeSchema,
 } from '../../../intervals/schemas/streams.js';
+import { activityStreamQuerySchema } from '../shared/activity-stream-query.schemas.js';
 
 export const getActivityStreamPageInputSchema = activityStreamQuerySchema.safeExtend({
   pageSize: z.number().int().min(1).max(500).default(200),

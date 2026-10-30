@@ -1,4 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/server';
+
 import type { WorkoutDrafts } from '../../../app/workouts/drafts.js';
 import { toolHandler } from '../shared/tool-handler.js';
 import { previewPlannedWorkoutInputSchema, previewPlannedWorkoutOutputSchema } from './schemas.js';

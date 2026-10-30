@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { athleteSettingsResponseSchema } from '../../intervals/schemas/athlete-settings.js';
 
 /** Validated Intervals settings enriched with advisory bridge warnings. */

@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/server';
-import type { IntervalsApi } from '../../../intervals/api.js';
+
 import type { WorkoutDrafts } from '../../../app/workouts/drafts.js';
+import type { IntervalsApi } from '../../../intervals/api.js';
 import { toolHandler } from '../shared/tool-handler.js';
 import { publishPlannedWorkoutInputSchema, publishPlannedWorkoutOutputSchema } from './schemas.js';
 

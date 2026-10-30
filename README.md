@@ -196,5 +196,5 @@ state management and verification strategy.
   [main validation and releases](.github/workflows/release.yml), and
   [Docker image publishing](.github/workflows/publish-image.yml).
 - **Release Please:** release PRs, versioning, changelog and GitHub releases.
-- **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
+- **Husky and lint-staged:** staged-file formatting/linting, automatic import sorting via ESLint, type checks and tests before commits.
 - **commitlint:** Conventional Commits enforcement.

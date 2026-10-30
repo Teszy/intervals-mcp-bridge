@@ -1,19 +1,20 @@
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
-import { WorkoutDrafts } from '../app/workouts/drafts.js';
-import { registerPreviewPlannedWorkoutTool } from './tools/preview-planned-workout/tool.js';
-import { registerPublishPlannedWorkoutTool } from './tools/publish-planned-workout/tool.js';
-import { registerListActivityWorkloadTool } from './tools/list-activity-workload/tool.js';
-import { registerListWellnessTool } from './tools/list-wellness/tool.js';
-import { registerGetAthleteSettingsTool } from './tools/get-athlete-settings/tool.js';
 import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
+
 import packageInfo from '../../package.json' with { type: 'json' };
+import { WorkoutDrafts } from '../app/workouts/drafts.js';
 import { IntervalsApi } from '../intervals/api.js';
 import type { IntervalsConfig } from '../intervals/config.js';
 import { registerGetActivityDetailsTool } from './tools/get-activity-details/tool.js';
-import { registerGetActivityStreamPageTool } from './tools/get-activity-stream-page/tool.js';
 import { registerGetActivityStreamOverviewTool } from './tools/get-activity-stream-overview/tool.js';
+import { registerGetActivityStreamPageTool } from './tools/get-activity-stream-page/tool.js';
 import { registerGetActivityStreamStatisticsTool } from './tools/get-activity-stream-statistics/tool.js';
+import { registerGetAthleteSettingsTool } from './tools/get-athlete-settings/tool.js';
+import { registerListActivityWorkloadTool } from './tools/list-activity-workload/tool.js';
 import { registerListRecentActivitiesTool } from './tools/list-recent-activities/tool.js';
+import { registerListWellnessTool } from './tools/list-wellness/tool.js';
+import { registerPreviewPlannedWorkoutTool } from './tools/preview-planned-workout/tool.js';
+import { registerPublishPlannedWorkoutTool } from './tools/publish-planned-workout/tool.js';
 
 /** Build the tool registry without opening a transport or making API requests. */
 export function createServer(config: IntervalsConfig): McpServer {

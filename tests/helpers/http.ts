@@ -1,4 +1,4 @@
-import axios, { AxiosError, type AxiosAdapter, type AxiosResponse } from 'axios';
+import axios, { type AxiosAdapter, AxiosError, type AxiosResponse } from 'axios';
 import { vi } from 'vitest';
 
 const createAxiosClient = axios.create.bind(axios);

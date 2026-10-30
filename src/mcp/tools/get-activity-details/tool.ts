@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../../intervals/api.js';
-import { toolHandler } from '../../tool-handler.js';
+import { toolHandler } from '../shared/tool-handler.js';
 import { getActivityDetailsInputSchema, getActivityDetailsOutputSchema } from './schemas.js';
 
 export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsApi): void {

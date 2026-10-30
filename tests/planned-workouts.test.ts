@@ -1,4 +1,4 @@
-import { toolHandler } from '../src/mcp/tool-handler.js';
+import { toolHandler } from '../src/mcp/tools/shared/tool-handler.js';
 import { WorkoutError } from '../src/errors.js';
 import { Decoder, Stream } from '@garmin/fitsdk';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';

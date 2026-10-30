@@ -183,7 +183,7 @@ HTTPS. The host owns model communication, while the bridge owns Intervals access
 ### Data contracts and processing
 
 Each tool registers its operation through `toolHandler` in
-`src/mcp/tool-handler.ts`. This shared wrapper returns the same successful object
+`src/mcp/tools/shared/tool-handler.ts`. This shared wrapper returns the same successful object
 as structured content and JSON text for host compatibility. It encloses the application operation,
 including HTTP and tool-side processing. Expected failures use responsibility-specific
 `AppError` subclasses with controlled messages supplied where they are thrown; unknown exceptions become a

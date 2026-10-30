@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../../intervals/api.js';
-import { toolHandler } from '../../tool-handler.js';
+import { toolHandler } from '../shared/tool-handler.js';
 import { getAthleteSettingsInputSchema, getAthleteSettingsOutputSchema } from './schemas.js';
 
 export function registerGetAthleteSettingsTool(server: McpServer, client: IntervalsApi): void {

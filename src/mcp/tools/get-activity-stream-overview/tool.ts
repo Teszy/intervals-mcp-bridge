@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../../intervals/api.js';
 
 import { createActivityStreamOverview } from '../../../app/activity-streams/overview.js';
-import { toolHandler } from '../../tool-handler.js';
+import { toolHandler } from '../shared/tool-handler.js';
 
 export function registerGetActivityStreamOverviewTool(
   server: McpServer,

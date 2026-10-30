@@ -7,7 +7,7 @@ import {
 } from '../src/errors.js';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { toolHandler } from '../src/mcp/tool-handler.js';
+import { toolHandler } from '../src/mcp/tools/shared/tool-handler.js';
 
 describe('central error boundary', () => {
   it('runs a synchronous operation with the handler arguments only when invoked', async () => {

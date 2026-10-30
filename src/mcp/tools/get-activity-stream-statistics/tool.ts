@@ -7,7 +7,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import type { IntervalsApi } from '../../../intervals/api.js';
 
 import { calculateActivityStreamStatistics } from '../../../app/activity-streams/statistics.js';
-import { toolHandler } from '../../tool-handler.js';
+import { toolHandler } from '../shared/tool-handler.js';
 
 export function registerGetActivityStreamStatisticsTool(
   server: McpServer,

@@ -1,8 +1,8 @@
 import { WorkoutError } from '../../errors.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { IntervalsApi } from '../../intervals/api.js';
-import type { PlannedWorkout, WorkoutDraftStatus } from '../../schemas/workouts.js';
-import type { PlannedWorkoutEvent } from '../../schemas/events.js';
+import type { PlannedWorkout, WorkoutDraftStatus } from './schemas.js';
+import type { PlannedWorkoutEvent } from '../../intervals/schemas/events.js';
 import { encodeWorkoutFit } from './fit.js';
 
 type Draft = {

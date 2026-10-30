@@ -1,11 +1,11 @@
 import { UpstreamDataError } from '../errors.js';
-import { addZoneWarnings } from './zone-warnings.js';
+import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
 import { HTTPClient } from '../http/client.js';
 import type { BasicAuth } from '../http/auth.js';
 import { z } from 'zod';
 import { loadIntervalsConfig, type IntervalsConfig } from './config.js';
-import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from '../schemas/events.js';
-import type { PlannedWorkout } from '../schemas/workouts.js';
+import { plannedWorkoutEventSchema, type PlannedWorkoutEvent } from './schemas/events.js';
+import type { PlannedWorkout } from '../app/workouts/schemas.js';
 import {
   activityWorkloadSchema,
   type ActivityWorkload,
@@ -13,23 +13,21 @@ import {
   activitySummarySchema,
   type ActivityDetails,
   type ActivitySummary,
-} from '../schemas/activities.js';
-import { wellnessSchema, type Wellness } from '../schemas/wellness.js';
-import type { TrainingDateRange } from '../schemas/date-range.js';
-import {
-  athleteSettingsResponseSchema,
-  type AthleteSettings,
-} from '../schemas/athlete-settings.js';
+} from './schemas/activities.js';
+import { wellnessSchema, type Wellness } from './schemas/wellness.js';
+import type { TrainingDateRange } from '../shared/schemas/date-range.js';
+import { athleteSettingsResponseSchema } from './schemas/athlete-settings.js';
+import type { AthleteSettings } from '../app/athlete-settings/schemas.js';
 import {
   activityStreamsResponseSchema,
   defaultActivityStreamTypes,
   type ActivityStreams,
   type ActivityStreamType,
-} from '../schemas/streams.js';
+} from './schemas/streams.js';
 
-export { activitySummarySchema } from '../schemas/activities.js';
-export type { ActivityDetails, ActivitySummary } from '../schemas/activities.js';
-export type { ActivityStreams, ActivityStreamType } from '../schemas/streams.js';
+export { activitySummarySchema } from './schemas/activities.js';
+export type { ActivityDetails, ActivitySummary } from './schemas/activities.js';
+export type { ActivityStreams, ActivityStreamType } from './schemas/streams.js';
 
 /** Internal adapter: callers validate inputs at the application boundary; responses are validated here. */
 export class IntervalsApi {

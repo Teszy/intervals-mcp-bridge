@@ -1,4 +1,4 @@
-import { plannedWorkoutSchema } from '../../src/schemas/workouts.js';
+import { plannedWorkoutSchema } from '../../src/app/workouts/schemas.js';
 export const plannedWorkout = plannedWorkoutSchema.parse({
   name: 'Test run',
   sport: 'Run',

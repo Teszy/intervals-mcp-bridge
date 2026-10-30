@@ -6,7 +6,7 @@ import {
   plannedWorkoutSchema,
   type PlannedWorkout,
   type PlannedWorkoutInput,
-} from '../src/schemas/workouts.js';
+} from '../src/app/workouts/schemas.js';
 import { IntervalsApi } from '../src/intervals/api.js';
 import { encodeWorkoutFit } from '../src/app/workouts/fit.js';
 import { WorkoutDrafts } from '../src/app/workouts/drafts.js';

@@ -1,14 +1,7 @@
-import { z } from 'zod';
-import { athleteSettingsSchema } from '../../schemas/athlete-settings.js';
 import type { McpServer } from '@modelcontextprotocol/server';
-
-import type { IntervalsApi } from '../../intervals/api.js';
-
-import { toolHandler } from '../tool-handler.js';
-
-const getAthleteSettingsInputSchema = z.strictObject({});
-
-const getAthleteSettingsOutputSchema = z.object({ settings: athleteSettingsSchema });
+import type { IntervalsApi } from '../../../intervals/api.js';
+import { toolHandler } from '../../tool-handler.js';
+import { getAthleteSettingsInputSchema, getAthleteSettingsOutputSchema } from './schemas.js';
 
 export function registerGetAthleteSettingsTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

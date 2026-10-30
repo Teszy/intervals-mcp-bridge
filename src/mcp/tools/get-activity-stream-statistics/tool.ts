@@ -1,13 +1,13 @@
 import {
   getActivityStreamStatisticsInputSchema,
   getActivityStreamStatisticsOutputSchema,
-} from './get-activity-stream-statistics.schemas.js';
+} from './schemas.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsApi } from '../../intervals/api.js';
+import type { IntervalsApi } from '../../../intervals/api.js';
 
-import { calculateActivityStreamStatistics } from '../../app/activity-streams/statistics.js';
-import { toolHandler } from '../tool-handler.js';
+import { calculateActivityStreamStatistics } from '../../../app/activity-streams/statistics.js';
+import { toolHandler } from '../../tool-handler.js';
 
 export function registerGetActivityStreamStatisticsTool(
   server: McpServer,

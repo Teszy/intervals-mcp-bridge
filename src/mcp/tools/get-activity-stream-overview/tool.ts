@@ -1,13 +1,13 @@
 import {
   getActivityStreamOverviewInputSchema,
   getActivityStreamOverviewOutputSchema,
-} from './get-activity-stream-overview.schemas.js';
+} from './schemas.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsApi } from '../../intervals/api.js';
+import type { IntervalsApi } from '../../../intervals/api.js';
 
-import { createActivityStreamOverview } from '../../app/activity-streams/overview.js';
-import { toolHandler } from '../tool-handler.js';
+import { createActivityStreamOverview } from '../../../app/activity-streams/overview.js';
+import { toolHandler } from '../../tool-handler.js';
 
 export function registerGetActivityStreamOverviewTool(
   server: McpServer,

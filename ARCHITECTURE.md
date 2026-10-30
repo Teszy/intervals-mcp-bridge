@@ -155,13 +155,13 @@ and documentation:
 Within `src/`, folders separate application behavior, external integration,
 protocol handling and data contracts:
 
-| Folder           | Responsibility and reason for separation                                                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/app/`       | Bridge-specific behavior, grouped by feature: stream processing and workout workflows. Keeps these operations independent of MCP registration; feature-specific helpers such as FIT encoding stay beside their workflow. |
-| `src/http/`      | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                       |
-| `src/intervals/` | Intervals integration: configuration and the `IntervalsApi` adapter for endpoints, request mapping and response consistency checks, and zone warnings. Hides upstream API details from tool handlers.                    |
-| `src/mcp/`       | MCP server composition, tool registration and result formatting. Tool-specific schemas live in the tool module or an adjacent `.schemas.ts` file when larger.                                                            |
-| `src/schemas/`   | Shared data contracts and their derived TypeScript types in a flat directory; configuration validation stays with its loader.                                                                                            |
+| Folder                | Responsibility and reason for separation                                                                                                                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`            | Bridge-specific behavior and contracts, grouped by feature: stream processing, workout workflows and advisory athlete-settings warnings. Application schemas stay beside their feature, such as `workouts/schemas.ts`.                                     |
+| `src/http/`           | Shared HTTP transport: `HTTPClient`, authentication types and sanitized request/response errors. Contains no Intervals endpoint or training logic.                                                                                                         |
+| `src/intervals/`      | Intervals integration: configuration and the `IntervalsApi` adapter for endpoints, request mapping and response consistency checks. `schemas/` contains curated upstream contracts and adapter data types. Configuration validation stays with its loader. |
+| `src/mcp/`            | MCP server composition, tool registration and result formatting. Each tool has a `tools/<tool-name>/` folder containing `tool.ts` and `schemas.ts`. Schemas shared by multiple tools live in `tools/shared/`.                                              |
+| `src/shared/schemas/` | Cross-feature schemas, currently athlete-local date ranges and their shared query limits.                                                                                                                                                                  |
 
 `src/errors.ts` defines the shared exception hierarchy. Expected failures inherit
 from `AppError` and carry controlled messages supplied at the throw site.

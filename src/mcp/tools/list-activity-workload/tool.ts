@@ -1,19 +1,7 @@
-import { z } from 'zod';
-import { activityWorkloadSchema } from '../../schemas/activities.js';
-import { trainingDateRangeSchema } from '../../schemas/date-range.js';
 import type { McpServer } from '@modelcontextprotocol/server';
-
-import type { IntervalsApi } from '../../intervals/api.js';
-
-import { toolHandler } from '../tool-handler.js';
-
-const listActivityWorkloadInputSchema = trainingDateRangeSchema;
-
-const listActivityWorkloadOutputSchema = z.object({
-  oldest: z.iso.date(),
-  newest: z.iso.date(),
-  activities: z.array(activityWorkloadSchema),
-});
+import type { IntervalsApi } from '../../../intervals/api.js';
+import { toolHandler } from '../../tool-handler.js';
+import { listActivityWorkloadInputSchema, listActivityWorkloadOutputSchema } from './schemas.js';
 
 export function registerListActivityWorkloadTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

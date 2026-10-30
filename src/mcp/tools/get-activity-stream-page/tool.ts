@@ -1,13 +1,10 @@
-import {
-  getActivityStreamPageInputSchema,
-  getActivityStreamPageOutputSchema,
-} from './get-activity-stream-page.schemas.js';
+import { getActivityStreamPageInputSchema, getActivityStreamPageOutputSchema } from './schemas.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsApi } from '../../intervals/api.js';
+import type { IntervalsApi } from '../../../intervals/api.js';
 
-import { createActivityStreamPage } from '../../app/activity-streams/page.js';
-import { toolHandler } from '../tool-handler.js';
+import { createActivityStreamPage } from '../../../app/activity-streams/page.js';
+import { toolHandler } from '../../tool-handler.js';
 
 export function registerGetActivityStreamPageTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

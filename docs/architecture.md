@@ -4,11 +4,12 @@ This document describes the bridge's own decisions: how upstream data becomes
 usable tool results, how calculations are kept reliable, and how a reviewed
 workout becomes a controlled calendar write. MCP wire semantics and Intervals
 field definitions belong to their upstream documentation and the source contracts.
-See [README.md](README.md) for setup, supported tools and CI/CD.
+See the [README](../README.md) for setup and supported tools, and
+[Development](development.md) for local setup, commands, Git hooks and CI/CD.
 
 ### ChatGPT through Docker and Secure MCP Tunnel
 
-![ChatGPT through Docker and Secure MCP Tunnel](docs/diagrams/chatgpt-docker.svg)
+![ChatGPT through Docker and Secure MCP Tunnel](diagrams/chatgpt-docker.svg)
 
 ChatGPT sends MCP requests to OpenAI's Secure MCP Tunnel service. The local
 `tunnel-client` initiates outbound HTTPS polling with its OpenAI runtime key,
@@ -30,7 +31,7 @@ Credentials are supplied at runtime and excluded from the image and repository.
 
 ### Local development through an MCP host
 
-![Local development through a direct MCP host](docs/diagrams/local-development.svg)
+![Local development through a direct MCP host](diagrams/local-development.svg)
 
 A local MCP host, such as VS Code with Copilot, starts the compiled bridge directly
 and exchanges MCP JSON-RPC messages over stdio. This path requires neither Docker
@@ -47,7 +48,7 @@ Each launched bridge owns its own in-memory drafts and publication results.
 The Docker and local development processes cannot share draft IDs. Restarting
 either process loses its state.
 See [reviewed workout state](#reviewed-workout-state) for publication guarantees and
-[README](README.md#setup) for setup and startup instructions.
+[README](../README.md#setup) for setup and startup instructions.
 
 ## Communication flow
 
@@ -150,7 +151,7 @@ and documentation:
 | `src/`    | Runtime application code, divided into the responsibilities below.                                                                                                                                                                                |
 | `docker/` | Container support configuration, including the Secure MCP Tunnel configuration. The root `Dockerfile` defines image construction and `compose.yaml` runs the published image. Development uses the compiled application through a local MCP host. |
 | `tests/`  | Automated checks, fixtures and HTTP mocks. Verifies application behavior and integration contracts without live credentials.                                                                                                                      |
-| `docs/`   | Supporting documentation assets, including architecture diagram sources and exported diagrams.                                                                                                                                                    |
+| `docs/`   | Development and architecture documentation, including diagram sources and exported diagrams.                                                                                                                                                      |
 
 Within `src/`, folders separate application behavior, external integration,
 protocol handling and data contracts:
@@ -175,9 +176,10 @@ the default resolves to compiled JavaScript under `dist/src/`. TypeScript uses
 Direct source execution requires `node --conditions=development --import tsx`.
 Production execution uses ordinary Node without a custom condition or loader.
 Do not duplicate these mappings in `tsconfig.paths` or a bundler alias table.
-Builds clean `dist/` first. Server metadata is read through `#package.json` from
-the root manifest, so compilation does not copy a second package scope into
-`dist/` and accidentally resolve aliases relative to the wrong directory.
+Server metadata is read through `#package.json` from the root manifest, so
+compilation does not copy a second package scope into `dist/` and accidentally
+resolve aliases relative to the wrong directory. Builds do not clear `dist/`;
+remove generated output manually when needed after file moves or deletions.
 
 `src/index.ts` loads configuration and calls `startServer(config)` inside the
 entry-point `try/catch`, which handles synchronous startup failures.
@@ -274,10 +276,12 @@ transport and keep write state explicit. Tests mock upstream HTTP and exercise
 SDK discovery/calls through in-memory transport; they verify our contracts without
 requiring live credentials.
 
-`pnpm typecheck` uses `tsconfig.json` to check application sources, tests and the
-Vitest configuration without emitting files. Local and Docker builds use
-`pnpm build` with `tsconfig.build.json`, which extends `tsconfig.json` and compiles
-only `src` to `dist/src`, deliberately excluding tests.
+Typechecking covers application sources, tests and the Vitest configuration.
+Application builds compile only `src` to `dist/src`, deliberately excluding tests.
+The source suite covers contracts and calculations; runtime tests verify that the
+compiled application works in its deployment image. See
+[Development](development.md#commands-and-automatic-checks) for commands and
+their automatic callers.
 
 PR and main CI also build the Docker runtime image and run the existing stdio
 suite against its compiled JavaScript entry point using `pnpm test:container`.

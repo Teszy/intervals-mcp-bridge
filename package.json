@@ -15,18 +15,15 @@
   "license": "MIT",
   "main": "dist/src/index.js",
   "scripts": {
-    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format:check": "prettier . --check",
-    "test:run": "vitest run --passWithNoTests",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:container": "MCP_TEST_IMAGE=intervals-mcp-bridge:ci-smoke vitest run tests/stdio.test.ts",
-    "test:coverage": "vitest run --coverage --passWithNoTests",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:compiled",
-    "prepare": "husky",
-    "check:commit": "pnpm typecheck && pnpm test:run",
-    "test:compiled": "MCP_TEST_COMPILED=1 vitest run tests/stdio.test.ts",
-    "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\""
+    "prepare": "husky"
   },
   "prettier": {
     "singleQuote": true,

@@ -6,10 +6,7 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const image = process.env.MCP_TEST_IMAGE;
-const compiled = process.env.MCP_TEST_COMPILED === '1';
-const entry = fileURLToPath(
-  new URL(compiled ? '../dist/src/index.js' : '../src/index.ts', import.meta.url),
-);
+const entry = fileURLToPath(new URL('../src/index.ts', import.meta.url));
 const execFileAsync = promisify(execFile);
 type ServerProcess = {
   child: ChildProcessWithoutNullStreams;
@@ -46,9 +43,7 @@ function launch(env: NodeJS.ProcessEnv = {}): ServerProcess {
         image,
         '/app/dist/src/index.js',
       ]
-    : compiled
-      ? [entry]
-      : ['--conditions=development', '--import', 'tsx', entry];
+    : ['--conditions=development', '--import', 'tsx', entry];
   const child = spawn(command, args, {
     env: { ...process.env, ...testEnv },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -118,13 +113,7 @@ async function initialize(server: ReturnType<typeof launch>) {
   );
 }
 
-const entryPoint = image
-  ? 'Compiled Docker stdio entry point'
-  : compiled
-    ? 'Compiled Node stdio entry point'
-    : 'SDK source stdio entry point';
-
-describe(entryPoint, () => {
+describe(image ? 'Compiled Docker stdio entry point' : 'SDK source stdio entry point', () => {
   it('serves real stdio requests and exits cleanly on EOF', async () => {
     const server = launch();
     await initialize(server);

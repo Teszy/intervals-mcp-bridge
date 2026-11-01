@@ -1,14 +1,9 @@
-import { z } from 'zod';
-import { activityDetailsSchema, activityIdSchema } from '../../schemas/activities.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsApi } from '../../intervals/api.js';
+import type { IntervalsApi } from '#intervals/api.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
 
-import { toolHandler } from '../tool-handler.js';
-
-const getActivityDetailsInputSchema = z.strictObject({ activityId: activityIdSchema });
-
-const getActivityDetailsOutputSchema = z.object({ activity: activityDetailsSchema });
+import { getActivityDetailsInputSchema, getActivityDetailsOutputSchema } from './schemas.js';
 
 export function registerGetActivityDetailsTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

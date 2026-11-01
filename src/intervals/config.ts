@@ -1,5 +1,6 @@
-import { ConfigurationError } from '../errors.js';
 import { z } from 'zod';
+
+import { ConfigurationError } from '#errors.js';
 
 const intervalsConfigSchema = z.object({
   apiKey: z.string().trim().min(1),

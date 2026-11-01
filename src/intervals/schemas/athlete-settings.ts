@@ -33,7 +33,8 @@ const sportSettingsSchema = z.object({
   workout_order: z.string().nullish(),
 });
 
-export const athleteSettingsSchema = z.object({
+/** Curated upstream fields; application warnings are added after parsing. */
+export const athleteSettingsResponseSchema = z.object({
   id: z.string().min(1),
   timezone: z.string().nullish(),
   measurement_preference: z.string().nullish(),
@@ -44,23 +45,6 @@ export const athleteSettingsSchema = z.object({
     .nullish()
     .describe('Kilograms; configured weight, not daily wellness'),
   sportSettings: z.array(sportSettingsSchema),
-  zoneWarnings: z
-    .array(
-      z.object({
-        sportSettingsId: z.number().int(),
-        types: z.array(z.string()),
-        field: z.enum(['hr_zones', 'power_zones', 'pace_zones']),
-        code: z.literal('INVALID_ZONE_LIMITS'),
-      }),
-    )
-    .optional()
-    .describe(
-      'Non-increasing upstream zone arrays are returned unchanged; warnings identify the affected profile and field',
-    ),
 });
 
-export type AthleteSettings = z.infer<typeof athleteSettingsSchema>;
-
-/** Curated upstream fields; application warnings are added after parsing. */
-export const athleteSettingsResponseSchema = athleteSettingsSchema.omit({ zoneWarnings: true });
 export type AthleteSettingsResponse = z.infer<typeof athleteSettingsResponseSchema>;

@@ -1,4 +1,4 @@
-import { activityStreamUnits, type ActivityStreams } from '../../schemas/streams.js';
+import { type ActivityStreams, activityStreamUnits } from '#intervals/schemas/streams.js';
 
 /** Present validated streams using an inclusive elapsed-time window. */
 export function createActivityStreamOverview(

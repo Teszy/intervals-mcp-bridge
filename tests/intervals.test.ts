@@ -1,10 +1,12 @@
-import { UpstreamDataError } from '../src/errors.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { IntervalsApi } from '../src/intervals/api.js';
-import { loadIntervalsConfig } from '../src/intervals/config.js';
-import { mockHttp } from './helpers/http.js';
+
+import { UpstreamDataError } from '#errors.js';
+import { IntervalsApi } from '#intervals/api.js';
+import { loadIntervalsConfig } from '#intervals/config.js';
+
 import { activityDetails } from './fixtures/activities.js';
 import { activityStreams } from './fixtures/streams.js';
+import { mockHttp } from './helpers/http.js';
 
 const config = {
   apiKey: 'test-secret',

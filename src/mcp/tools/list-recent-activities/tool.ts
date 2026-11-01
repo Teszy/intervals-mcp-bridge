@@ -1,25 +1,9 @@
-import { z } from 'zod';
-import { activitySummarySchema } from '../../schemas/activities.js';
-import { athleteDateRangeSchema } from '../../schemas/date-range.js';
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import type { IntervalsApi } from '../../intervals/api.js';
+import type { IntervalsApi } from '#intervals/api.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
 
-import { toolHandler } from '../tool-handler.js';
-
-const listRecentActivitiesInputSchema = athleteDateRangeSchema.refine(
-  ({ oldest, newest }) => Date.parse(newest) - Date.parse(oldest) < 365 * 86_400_000,
-  {
-    message: 'Request at most 365 inclusive calendar days at a time.',
-    path: ['newest'],
-  },
-);
-
-const listRecentActivitiesOutputSchema = z.object({
-  oldest: z.iso.date(),
-  newest: z.iso.date(),
-  activities: z.array(activitySummarySchema),
-});
+import { listRecentActivitiesInputSchema, listRecentActivitiesOutputSchema } from './schemas.js';
 
 export function registerListRecentActivitiesTool(server: McpServer, client: IntervalsApi): void {
   server.registerTool(

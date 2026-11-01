@@ -1,11 +1,12 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const entry = fileURLToPath(new URL('../src/index.ts', import.meta.url));
 const image = process.env.MCP_TEST_IMAGE;
+const entry = fileURLToPath(new URL('../src/index.ts', import.meta.url));
 const execFileAsync = promisify(execFile);
 type ServerProcess = {
   child: ChildProcessWithoutNullStreams;
@@ -42,7 +43,7 @@ function launch(env: NodeJS.ProcessEnv = {}): ServerProcess {
         image,
         '/app/dist/src/index.js',
       ]
-    : ['--import', 'tsx', entry];
+    : ['--conditions=development', '--import', 'tsx', entry];
   const child = spawn(command, args, {
     env: { ...process.env, ...testEnv },
     stdio: ['pipe', 'pipe', 'pipe'],

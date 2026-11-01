@@ -1,16 +1,18 @@
-import { toolHandler } from '../src/mcp/tool-handler.js';
-import { WorkoutError } from '../src/errors.js';
 import { Decoder, Stream } from '@garmin/fitsdk';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+
+import { WorkoutDrafts } from '#app/workouts/drafts.js';
+import { encodeWorkoutFit } from '#app/workouts/fit.js';
 import {
-  plannedWorkoutSchema,
   type PlannedWorkout,
   type PlannedWorkoutInput,
-} from '../src/schemas/workouts.js';
-import { IntervalsApi } from '../src/intervals/api.js';
-import { encodeWorkoutFit } from '../src/app/workouts/fit.js';
-import { WorkoutDrafts } from '../src/app/workouts/drafts.js';
-import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
+  plannedWorkoutSchema,
+} from '#app/workouts/schemas.js';
+import { WorkoutError } from '#errors.js';
+import { IntervalsApi } from '#intervals/api.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
+
+import { plannedEvent, plannedWorkout } from './fixtures/workout.js';
 import { mockHttp } from './helpers/http.js';
 const config = {
   apiKey: 'test-secret',

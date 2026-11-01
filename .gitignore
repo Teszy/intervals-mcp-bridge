@@ -15,5 +15,7 @@ coverage/
 
 *.log
 
-# docs markdown files
+# Keep personal planning notes local; version the development and architecture guides.
 docs/*.md
+!docs/development.md
+!docs/architecture.md

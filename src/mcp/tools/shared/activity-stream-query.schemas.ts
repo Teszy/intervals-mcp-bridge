@@ -1,6 +1,10 @@
 import { z } from 'zod';
-import { activityIdSchema } from '../../schemas/activities.js';
-import { activityStreamTypesSchema, defaultActivityStreamTypes } from '../../schemas/streams.js';
+
+import { activityIdSchema } from '#intervals/schemas/activities.js';
+import {
+  activityStreamTypesSchema,
+  defaultActivityStreamTypes,
+} from '#intervals/schemas/streams.js';
 
 /** Shared stream selection and inclusive elapsed-time bounds for stream tools. */
 export const activityStreamQuerySchema = z

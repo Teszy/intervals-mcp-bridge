@@ -1,12 +1,14 @@
-import { IntervalsApi } from '../src/intervals/api.js';
-import { plannedWorkout, plannedEvent } from './fixtures/workout.js';
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { IntervalsApi } from '#intervals/api.js';
+import { createServer } from '#mcp/server.js';
+
 import packageInfo from '../package.json' with { type: 'json' };
-import { createServer } from '../src/mcp/server.js';
-import { mockHttp } from './helpers/http.js';
 import { activityDetails } from './fixtures/activities.js';
 import { activityStreams } from './fixtures/streams.js';
+import { plannedEvent, plannedWorkout } from './fixtures/workout.js';
+import { mockHttp } from './helpers/http.js';
 
 const config = {
   apiKey: 'test-secret',

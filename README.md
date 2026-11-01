@@ -137,64 +137,7 @@ At the limit, restart the container to create new drafts; unpublished drafts wil
 
 Previously published calendar events remain in Intervals. If a write had an uncertain outcome, inspect the calendar before creating a new draft.
 
-## Development
+## Documentation
 
-> [!NOTE]
-> Direct local execution requires only the Intervals settings in `.env`.
-> The `OPENAI_` variables and an OpenAI tunnel are not needed.
-
-Clone the repository and create `.env` from `.env.example` in its root.
-Install dependencies from the repository root:
-
-```sh
-pnpm install
-```
-
-Build the server:
-
-```sh
-pnpm build
-```
-
-Run the MCP server directly through an MCP host.
-
-### Using VS Code and Copilot as MCP host
-
-> [!NOTE]
-> Requires VS Code 1.140 or later. Copilot Free is sufficient.
-
-Create a file named `.mcp.json` in the repository root with the following content:
-
-```json
-{
-  "mcpServers": {
-    "intervals-mcp-bridge": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["--env-file=/absolute/path/to/.env", "/absolute/path/to/dist/src/index.js"],
-      "tools": ["*"]
-    }
-  }
-}
-```
-
-Replace both example paths with absolute paths to your local checkout. The `.mcp.json` file is ignored by Git by default because it contains
-machine-specific paths; each developer creates their own local copy.
-
-Start the MCP using VS Code's MCP controls.
-Ask Copilot for your recent activities to verify the connection.
-
-After source
-changes, rebuild and restart the server. VS Code manages the process over stdio.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for component responsibilities, data flow,
-state management and verification strategy.
-
-### CI/CD
-
-- **GitHub Actions:** [PR quality gates](.github/workflows/pr-qgate.yml),
-  [main validation and releases](.github/workflows/release.yml), and
-  [Docker image publishing](.github/workflows/publish-image.yml).
-- **Release Please:** release PRs, versioning, changelog and GitHub releases.
-- **Husky and lint-staged:** staged-file formatting/linting, type checks and tests before commits.
-- **commitlint:** Conventional Commits enforcement.
+- [Development](docs/development.md): local setup, commands, Git hooks and CI checks.
+- [Architecture](docs/architecture.md): components, data flow and publication guarantees.

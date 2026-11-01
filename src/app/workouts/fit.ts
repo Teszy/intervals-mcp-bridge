@@ -1,15 +1,18 @@
-import { WorkoutError } from '../../errors.js';
+import { createHash } from 'node:crypto';
+
 import {
-  Encoder,
   Decoder,
+  Encoder,
+  type FileIdMesg,
   Profile,
   Stream,
-  type FileIdMesg,
   type WorkoutMesg,
   type WorkoutStepMesg,
 } from '@garmin/fitsdk';
-import { createHash } from 'node:crypto';
-import type { PlannedWorkout } from '../../schemas/workouts.js';
+
+import { WorkoutError } from '#errors.js';
+
+import type { PlannedWorkout } from './schemas.js';
 
 /** Accepts a validated, normalized workout. Absolute targets use FIT's HR/power offsets; dynamic fields require raw scales. */
 export function encodeWorkoutFit(workout: PlannedWorkout): Uint8Array {

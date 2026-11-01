@@ -1,13 +1,14 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
 import {
   AppError,
   HTTPError,
-  UpstreamDataError,
   InputValidationError,
+  UpstreamDataError,
   WorkoutError,
-} from '../src/errors.js';
-import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
-import { toolHandler } from '../src/mcp/tool-handler.js';
+} from '#errors.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
 
 describe('central error boundary', () => {
   it('runs a synchronous operation with the handler arguments only when invoked', async () => {

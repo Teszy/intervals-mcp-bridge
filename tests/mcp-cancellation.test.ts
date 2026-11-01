@@ -2,7 +2,8 @@ import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/se
 import { AxiosError } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createServer } from '../src/mcp/server.js';
+import { createServer } from '#mcp/server.js';
+
 import { plannedWorkout } from './fixtures/workout.js';
 import { mockHttp } from './helpers/http.js';
 

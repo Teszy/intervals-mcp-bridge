@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { activityIdSchema } from '../../../intervals/schemas/activities.js';
-import { activityStreamTypeSchema } from '../../../intervals/schemas/streams.js';
-import { activityStreamQuerySchema } from '../shared/activity-stream-query.schemas.js';
+import { activityIdSchema } from '#intervals/schemas/activities.js';
+import { activityStreamTypeSchema } from '#intervals/schemas/streams.js';
+import { activityStreamQuerySchema } from '#mcp/tools/shared/activity-stream-query.schemas.js';
 
 const zoneSchema = z.strictObject({
   type: activityStreamTypeSchema,

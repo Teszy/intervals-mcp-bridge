@@ -1,9 +1,10 @@
 import { InMemoryTransport, type JSONRPCMessage } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { IntervalsApi } from '#intervals/api.js';
+import { createServer } from '#mcp/server.js';
+
 import packageInfo from '../package.json' with { type: 'json' };
-import { IntervalsApi } from '../src/intervals/api.js';
-import { createServer } from '../src/mcp/server.js';
 import { activityDetails } from './fixtures/activities.js';
 import { activityStreams } from './fixtures/streams.js';
 import { plannedEvent, plannedWorkout } from './fixtures/workout.js';

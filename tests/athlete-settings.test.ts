@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { IntervalsApi } from '../src/intervals/api.js';
+import { IntervalsApi } from '#intervals/api.js';
+
 import { mockHttp } from './helpers/http.js';
 
 const config = {

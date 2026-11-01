@@ -2,9 +2,10 @@ import axios, { AxiosError } from 'axios';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { HTTPError, UpstreamDataError } from '../src/errors.js';
-import type { BasicAuth, BearerAuth } from '../src/http/auth.js';
-import { HTTPClient } from '../src/http/client.js';
+import { HTTPError, UpstreamDataError } from '#errors.js';
+import type { BasicAuth, BearerAuth } from '#http/auth.js';
+import { HTTPClient } from '#http/client.js';
+
 import { mockHttp } from './helpers/http.js';
 
 function setup(data: unknown = { ok: true }, status = 200, authToken?: string) {

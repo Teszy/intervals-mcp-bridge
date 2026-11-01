@@ -1,7 +1,8 @@
 import axios, { AxiosHeaders, type AxiosInstance } from 'axios';
 import type { z } from 'zod';
 
-import { HTTPError, UpstreamDataError } from '../errors.js';
+import { HTTPError, UpstreamDataError } from '#errors.js';
+
 import type { Auth } from './auth.js';
 
 export type QueryParams = Record<string, string | number | boolean | undefined>;

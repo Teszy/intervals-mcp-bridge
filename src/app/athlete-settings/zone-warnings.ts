@@ -1,4 +1,5 @@
-import type { AthleteSettingsResponse } from '../../intervals/schemas/athlete-settings.js';
+import type { AthleteSettingsResponse } from '#intervals/schemas/athlete-settings.js';
+
 import type { AthleteSettings } from './schemas.js';
 
 /** Preserve upstream values and report non-increasing zone limits without repairing them. */

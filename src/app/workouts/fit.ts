@@ -10,7 +10,8 @@ import {
   type WorkoutStepMesg,
 } from '@garmin/fitsdk';
 
-import { WorkoutError } from '../../errors.js';
+import { WorkoutError } from '#errors.js';
+
 import type { PlannedWorkout } from './schemas.js';
 
 /** Accepts a validated, normalized workout. Absolute targets use FIT's HR/power offsets; dynamic fields require raw scales. */

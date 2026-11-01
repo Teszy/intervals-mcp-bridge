@@ -1,4 +1,4 @@
-import { AppError } from '../../../errors.js';
+import { AppError } from '#errors.js';
 
 /** Apply shared MCP result formatting and error handling to a tool operation. */
 export function toolHandler<Args extends unknown[], T extends Record<string, unknown>>(

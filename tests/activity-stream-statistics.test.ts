@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateActivityStreamStatistics } from '../src/app/activity-streams/statistics.js';
-import type { ActivityStreams } from '../src/intervals/schemas/streams.js';
+import { calculateActivityStreamStatistics } from '#app/activity-streams/statistics.js';
+import type { ActivityStreams } from '#intervals/schemas/streams.js';
 
 function streams(time: number[], values: (number | null)[]): ActivityStreams {
   return { time, streams: [{ type: 'heartrate', data: values }], missingStreams: [] };

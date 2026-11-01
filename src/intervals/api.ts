@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
-import type { AthleteSettings } from '../app/athlete-settings/schemas.js';
-import { addZoneWarnings } from '../app/athlete-settings/zone-warnings.js';
-import type { PlannedWorkout } from '../app/workouts/schemas.js';
-import { UpstreamDataError } from '../errors.js';
-import type { BasicAuth } from '../http/auth.js';
-import { HTTPClient } from '../http/client.js';
-import type { TrainingDateRange } from '../shared/schemas/date-range.js';
+import type { AthleteSettings } from '#app/athlete-settings/schemas.js';
+import { addZoneWarnings } from '#app/athlete-settings/zone-warnings.js';
+import type { PlannedWorkout } from '#app/workouts/schemas.js';
+import { UpstreamDataError } from '#errors.js';
+import type { BasicAuth } from '#http/auth.js';
+import { HTTPClient } from '#http/client.js';
+import type { TrainingDateRange } from '#shared/schemas/date-range.js';
+
 import { type IntervalsConfig, loadIntervalsConfig } from './config.js';
 import {
   type ActivityDetails,

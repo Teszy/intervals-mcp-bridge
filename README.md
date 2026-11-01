@@ -156,6 +156,12 @@ Build the server:
 pnpm build
 ```
 
+Internal `#app/`, `#intervals/` and related imports are defined in `package.json`.
+Compiled execution uses ordinary Node. When running source files directly, use
+`node --conditions=development --import tsx src/index.ts` with the required
+Intervals environment variables set. The test runner resolves source imports
+automatically; `pnpm check` also verifies the compiled stdio entry point.
+
 Run the MCP server directly through an MCP host.
 
 ### Using VS Code and Copilot as MCP host

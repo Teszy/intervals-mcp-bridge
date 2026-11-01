@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { UpstreamDataError } from '../src/errors.js';
-import { IntervalsApi } from '../src/intervals/api.js';
+import { UpstreamDataError } from '#errors.js';
+import { IntervalsApi } from '#intervals/api.js';
+
 import { mockHttp } from './helpers/http.js';
 
 const config = {

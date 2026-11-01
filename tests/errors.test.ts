@@ -7,8 +7,8 @@ import {
   InputValidationError,
   UpstreamDataError,
   WorkoutError,
-} from '../src/errors.js';
-import { toolHandler } from '../src/mcp/tools/shared/tool-handler.js';
+} from '#errors.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
 
 describe('central error boundary', () => {
   it('runs a synchronous operation with the handler arguments only when invoked', async () => {

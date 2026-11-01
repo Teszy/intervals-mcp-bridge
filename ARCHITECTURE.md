@@ -166,6 +166,19 @@ protocol handling and data contracts:
 `src/errors.ts` defines the shared exception hierarchy. Expected failures inherit
 from `AppError` and carry controlled messages supplied at the throw site.
 
+Cross-feature imports use native Node package imports (`#app/`, `#http/`,
+`#intervals/`, `#mcp/`, `#shared/` and `#errors.js`), defined in `package.json`.
+Keep nearby imports such as `./schemas.js` relative. Specifiers retain their
+`.js` extension. The `development` condition resolves to TypeScript under `src/`;
+the default resolves to compiled JavaScript under `dist/src/`. TypeScript uses
+`customConditions: ["development"]`, and Vitest uses its development resolution.
+Direct source execution requires `node --conditions=development --import tsx`.
+Production execution uses ordinary Node without a custom condition or loader.
+Do not duplicate these mappings in `tsconfig.paths` or a bundler alias table.
+Builds clean `dist/` first. Server metadata is read through `#package.json` from
+the root manifest, so compilation does not copy a second package scope into
+`dist/` and accidentally resolve aliases relative to the wrong directory.
+
 `src/index.ts` loads configuration and calls `startServer(config)` inside the
 entry-point `try/catch`, which handles synchronous startup failures.
 `src/mcp/server.ts` assembles the server and starts the SDK's `serveStdio`

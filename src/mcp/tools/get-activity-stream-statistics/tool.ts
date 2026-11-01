@@ -1,8 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 
-import { calculateActivityStreamStatistics } from '../../../app/activity-streams/statistics.js';
-import type { IntervalsApi } from '../../../intervals/api.js';
-import { toolHandler } from '../shared/tool-handler.js';
+import { calculateActivityStreamStatistics } from '#app/activity-streams/statistics.js';
+import type { IntervalsApi } from '#intervals/api.js';
+import { toolHandler } from '#mcp/tools/shared/tool-handler.js';
+
 import {
   getActivityStreamStatisticsInputSchema,
   getActivityStreamStatisticsOutputSchema,
